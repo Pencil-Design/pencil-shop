@@ -1,24 +1,30 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "3f9bf5a483fe73dd7b4c9c98edc94d02"
+client_id = "5a75d2a568ce9885bc5cce926c143d15"
 name = "pencil-shop"
-application_url = "https://example.com"
+application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/"
 embedded = true
-
-[build]
-automatically_update_urls_on_dev = true
+handle = "pencil-shop-1"
 
 [webhooks]
-api_version = "2024-10"
+api_version = "2025-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,read_products,write_product_listings,read_inventory,write_inventory,read_publications,write_publications"
+scopes = "write_inventory,read_inventory,write_product_listings,read_products,write_products,read_publications,write_publications"
+optional_scopes = [ ]
+use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://mcm7prt4qj.us-east-1.awsapprunner.com/auth/callback",
+  "https://mcm7prt4qj.us-east-1.awsapprunner.com/api/auth/callback"
+]
 
 [app_proxy]
-url = "https://rated-palestinian-practitioners-kit.trycloudflare.com/proxy"
+url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/proxy"
 subpath = "designer"
 prefix = "apps"
+
+[build]
+automatically_update_urls_on_dev = false

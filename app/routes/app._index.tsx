@@ -1,6 +1,6 @@
-// import { useEffect } from "react";
+import { useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-// import { useFetcher } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -9,8 +9,9 @@ import {
   BlockStack,
   List,
   Link,
+  Button,
 } from "@shopify/polaris";
-// import { useAppBridge } from "@shopify/app-bridge-react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -89,23 +90,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
-  // const fetcher = useFetcher<typeof action>();
+  const fetcher = useFetcher<typeof action>();
 
-  // const shopify = useAppBridge();
-  // const isLoading =
-  //   ["loading", "submitting"].includes(fetcher.state) &&
-  //   fetcher.formMethod === "POST";
-  // const productId = fetcher.data?.product?.id.replace(
-  //   "gid://shopify/Product/",
-  //   "",
-  // );
+  const shopify = useAppBridge();
+  const isLoading =
+    ["loading", "submitting"].includes(fetcher.state) &&
+    fetcher.formMethod === "POST";
+  const productId = fetcher.data?.product?.id.replace(
+    "gid://shopify/Product/",
+    "",
+  );
 
-  // useEffect(() => {
-  //   if (productId) {
-  //     shopify.toast.show("Product created");
-  //   }
-  // }, [productId, shopify]);
-  // const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  useEffect(() => {
+    if (productId) {
+      shopify.toast.show("Product created");
+    }
+  }, [productId, shopify]);
+  const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
   return (
     <Page>
@@ -124,6 +125,12 @@ export default function Index() {
                   </Text>
                 </BlockStack>
                 <BlockStack gap="200">
+                  <Button
+                    loading={isLoading}
+                    onClick={generateProduct}
+                  >
+                    Generate a product
+                  </Button>
                   <List>
                     <List.Item>
                       1. From your Shopify admin, go to{" "}
