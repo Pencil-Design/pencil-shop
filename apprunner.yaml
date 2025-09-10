@@ -1,0 +1,12 @@
+version: 1.0
+runtime: nodejs20
+build:
+  commands:
+    - npm ci --omit=dev
+    - npm run build
+run:
+  # one command that does DB setup, then starts the server
+  command: npm run start:apprunner
+  network:
+    port: 3000
+    env: PORT
