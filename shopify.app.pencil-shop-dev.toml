@@ -2,7 +2,7 @@
 
 client_id = "083e72c4309ebc15af670292fc106d87"
 name = "pencil-shop-dev"
-application_url = "https://example.com"
+application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/app"
 embedded = true
 
 [build]
@@ -17,4 +17,4 @@ api_version = "2025-10"
 scopes = "read_inventory,read_products,read_publications,write_inventory,write_product_listings,write_products,write_publications"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = ["https://mcm7prt4qj.us-east-1.awsapprunner.com/api/auth/callback", "https://mcm7prt4qj.us-east-1.awsapprunner.com/auth/callback"]
