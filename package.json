@@ -16,7 +16,7 @@
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
     "start:apprunner": "npm run prisma:prepare && NODE_ENV=production npm run start:prod",
-    "start:prod": "remix-serve ./build/server/index.js --host 0.0.0.0",
+    "start:prod": "remix-serve ./build/server/index.js --host 0.0.0.0 --port $PORT",
     "start": "remix-serve ./build/server/index.js",
     "db:push": "prisma db push",
     "migrate:deploy": "prisma migrate deploy",
