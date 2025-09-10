@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"     // <- was "sqlite"
+  provider = "postgresql" // <- was "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -29,19 +29,19 @@ model Session {
 }
 
 model Model {
-  id                  Int      @id @default(autoincrement())
-  modelId             String   @unique @map("model_id")
-  productId           String   @map("product_id")
-  variantId           String   @map("variant_id")
-  productName         String   @map("product_name")
-  price               String
-  currency            String   @default("USD")
-  source              String   @default("shop-page")
-  designerUrl         String   @map("designer_url")
-  shopifyProductGid   String   @map("shopify_product_gid")
-  shopifyVariantGid   String   @map("shopify_variant_gid")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                Int      @id @default(autoincrement())
+  modelId           String   @unique @map("model_id")
+  productId         String   @map("product_id")
+  variantId         String   @map("variant_id")
+  productName       String   @map("product_name")
+  price             String
+  currency          String   @default("USD")
+  source            String   @default("shop-page")
+  designerUrl       String   @map("designer_url")
+  shopifyProductGid String   @map("shopify_product_gid")
+  shopifyVariantGid String   @map("shopify_variant_gid")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("models")
 }
