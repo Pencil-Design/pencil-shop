@@ -9,7 +9,6 @@ import {
   BlockStack,
   List,
   Link,
-  Button,
 } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -93,9 +92,6 @@ export default function Index() {
   const fetcher = useFetcher<typeof action>();
 
   const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
   const productId = fetcher.data?.product?.id.replace(
     "gid://shopify/Product/",
     "",
@@ -106,7 +102,6 @@ export default function Index() {
       shopify.toast.show("Product created");
     }
   }, [productId, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
 
   return (
     <Page>
@@ -125,12 +120,6 @@ export default function Index() {
                   </Text>
                 </BlockStack>
                 <BlockStack gap="200">
-                  <Button
-                    loading={isLoading}
-                    onClick={generateProduct}
-                  >
-                    Generate a product
-                  </Button>
                   <List>
                     <List.Item>
                       1. From your Shopify admin, go to{" "}
