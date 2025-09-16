@@ -7,7 +7,11 @@ embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
+
+[app_proxy]
+url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/proxy"
+subpath = "designer"
+prefix = "apps"
 
 [webhooks]
 api_version = "2025-10"
