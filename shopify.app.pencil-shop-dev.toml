@@ -2,16 +2,11 @@
 
 client_id = "083e72c4309ebc15af670292fc106d87"
 name = "pencil-shop-dev"
-application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/app"
+application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-
-[app_proxy]
-url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/proxy"
-subpath = "designer"
-prefix = "apps"
 
 [webhooks]
 api_version = "2025-10"
@@ -21,4 +16,12 @@ api_version = "2025-10"
 scopes = "read_inventory,read_products,read_publications,write_inventory,write_product_listings,write_products,write_publications"
 
 [auth]
-redirect_urls = ["https://mcm7prt4qj.us-east-1.awsapprunner.com/api/auth/callback", "https://mcm7prt4qj.us-east-1.awsapprunner.com/auth/callback"]
+redirect_urls = [
+  "https://mcm7prt4qj.us-east-1.awsapprunner.com/api/auth/callback",
+  "https://mcm7prt4qj.us-east-1.awsapprunner.com/auth/callback"
+]
+
+[app_proxy]
+url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/proxy"
+subpath = "designer"
+prefix = "apps"
