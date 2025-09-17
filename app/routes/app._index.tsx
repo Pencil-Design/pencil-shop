@@ -14,9 +14,16 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-
-  return null;
+  try {
+    await authenticate.admin(request);
+    return null;
+  } catch (error) {
+    console.error("/app index loader authenticate.admin failed", {
+      url: request.url,
+      message: (error as Error).message,
+    });
+    throw error;
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
