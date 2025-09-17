@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { json } from "@remix-run/node";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import {
@@ -14,16 +15,9 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    await authenticate.admin(request);
-    return null;
-  } catch (error) {
-    console.error("/app index loader authenticate.admin failed", {
-      url: request.url,
-      message: (error as Error).message,
-    });
-    throw error;
-  }
+  const { redirect } = await authenticate.admin(request);
+  if (redirect) return redirect;
+  return json({ ok: true });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
