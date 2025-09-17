@@ -11,6 +11,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log("🔍 [_index] Loader called with URL:", request.url);
   console.log("🔍 [_index] Search params:", Object.fromEntries(url.searchParams.entries()));
 
+  // Check if this is a Shopify embedded app request
+  if (url.searchParams.get("shop") && url.searchParams.get("embedded")) {
+    console.log("🔍 [_index] Shopify embedded app request detected");
+    console.log("📝 [_index] User is accessing from Shopify Admin, redirecting to OAuth");
+    console.log("📝 [_index] This will start the OAuth flow to create a session");
+    throw redirect(`/auth/login?${url.searchParams.toString()}`);
+  }
+
   if (url.searchParams.get("shop")) {
     console.log("🔍 [_index] Shop param found, redirecting to /app");
     console.log("📝 [_index] This means user is coming back from OAuth flow");
