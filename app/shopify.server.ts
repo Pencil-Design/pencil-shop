@@ -42,15 +42,15 @@ prisma.$connect()
   });
 
 // Add logging wrapper for session storage
-const sessionStorage = new PrismaSessionStorage(prisma);
+const prismaSessionStorage = new PrismaSessionStorage(prisma);
 
 // Wrap session storage methods with logging
-const originalStoreSession = sessionStorage.storeSession.bind(sessionStorage);
-const originalLoadSession = sessionStorage.loadSession.bind(sessionStorage);
-const originalDeleteSession = sessionStorage.deleteSession.bind(sessionStorage);
+const originalStoreSession = prismaSessionStorage.storeSession.bind(prismaSessionStorage);
+const originalLoadSession = prismaSessionStorage.loadSession.bind(prismaSessionStorage);
+const originalDeleteSession = prismaSessionStorage.deleteSession.bind(prismaSessionStorage);
 
-sessionStorage.storeSession = async (session) => {
-  console.log("🔍 [sessionStorage] Storing session:", {
+prismaSessionStorage.storeSession = async (session) => {
+  console.log("🔍 [prismaSessionStorage] Storing session:", {
     id: session.id,
     shop: session.shop,
     isOnline: session.isOnline,
@@ -59,20 +59,20 @@ sessionStorage.storeSession = async (session) => {
   });
   try {
     const result = await originalStoreSession(session);
-    console.log("✅ [sessionStorage] Session stored successfully");
+    console.log("✅ [prismaSessionStorage] Session stored successfully");
     return result;
   } catch (error) {
-    console.error("❌ [sessionStorage] Failed to store session:", error);
+    console.error("❌ [prismaSessionStorage] Failed to store session:", error);
     throw error;
   }
 };
 
-sessionStorage.loadSession = async (id) => {
-  console.log("🔍 [sessionStorage] Loading session with ID:", id);
+prismaSessionStorage.loadSession = async (id) => {
+  console.log("🔍 [prismaSessionStorage] Loading session with ID:", id);
   try {
     const session = await originalLoadSession(id);
     if (session) {
-      console.log("✅ [sessionStorage] Session loaded:", {
+      console.log("✅ [prismaSessionStorage] Session loaded:", {
         id: session.id,
         shop: session.shop,
         isOnline: session.isOnline,
@@ -80,23 +80,23 @@ sessionStorage.loadSession = async (id) => {
         expires: session.expires,
       });
     } else {
-      console.log("⚠️ [sessionStorage] No session found for ID:", id);
+      console.log("⚠️ [prismaSessionStorage] No session found for ID:", id);
     }
     return session;
   } catch (error) {
-    console.error("❌ [sessionStorage] Failed to load session:", error);
+    console.error("❌ [prismaSessionStorage] Failed to load session:", error);
     throw error;
   }
 };
 
-sessionStorage.deleteSession = async (id) => {
-  console.log("🔍 [sessionStorage] Deleting session with ID:", id);
+prismaSessionStorage.deleteSession = async (id) => {
+  console.log("🔍 [prismaSessionStorage] Deleting session with ID:", id);
   try {
     const result = await originalDeleteSession(id);
-    console.log("✅ [sessionStorage] Session deleted successfully");
+    console.log("✅ [prismaSessionStorage] Session deleted successfully");
     return result;
   } catch (error) {
-    console.error("❌ [sessionStorage] Failed to delete session:", error);
+    console.error("❌ [prismaSessionStorage] Failed to delete session:", error);
     throw error;
   }
 };
@@ -116,7 +116,7 @@ const shopify = shopifyApp({
   ],
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: sessionStorage,
+  sessionStorage: prismaSessionStorage,
   distribution: AppDistribution.AppStore,
   future: {
     unstable_newEmbeddedAuthStrategy: true,
