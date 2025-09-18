@@ -9,17 +9,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Missing shop parameter", { status: 400 });
   }
 
-  // 🟢 STEP 1: If we're in the top-level bounce, output a script to break out of the iframe
-  if (url.searchParams.get("top-level") === "true") {
+  // 🟢 STEP 1: No top-level yet → bounce out of iframe
+  if (!url.searchParams.get("top-level")) {
+    console.log("🔄 STEP 1: In iframe, bouncing to top-level for shop:", shop);
     return new Response(
       `<script>
-         window.top.location.href = "/auth/login?shop=${shop}";
+         console.log("🔄 STEP 1 (client): Forcing top-level redirect for ${shop}");
+         window.top.location.href = "/auth/login?shop=${shop}&top-level=true";
        </script>`,
       { headers: { "Content-Type": "text/html" } }
     );
   }
 
-  // 🟢 STEP 2: Otherwise, start OAuth
-  console.log("🔄 STEP 2: Starting OAuth for shop:", shop);
+  // 🟢 STEP 2: At top-level → start OAuth
+  console.log("🔄 STEP 2: At top-level, starting OAuth for shop:", shop);
   return login(request);
 };
