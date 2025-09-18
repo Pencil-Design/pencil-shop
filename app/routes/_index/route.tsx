@@ -12,7 +12,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if this is a Shopify embedded app request
   if (url.searchParams.get("shop") && url.searchParams.get("embedded")) {
     console.log("🔄 STEP 1: Shopify embedded app detected → redirecting to OAuth");
-    throw redirect(`/auth/login?${url.searchParams.toString()}`);
+    throw redirect("/auth/login?shop=" + url.searchParams.get("shop") + "&top-level=true");
   }
 
   if (url.searchParams.get("shop")) {
