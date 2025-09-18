@@ -14,21 +14,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   const searchParams = Object.fromEntries(url.searchParams.entries());
   
-  // Check if this is a Shopify embedded app request BEFORE trying to authenticate
-  if (searchParams.shop && searchParams.embedded) {
-    console.log("🔄 STEP 1: No session found → redirecting to OAuth");
-    throw redirect(`/auth/login?${url.searchParams.toString()}`);
-  }
-  
   try {
     console.log("🔄 STEP 4: Validating session...");
     await authenticate.admin(request);
     console.log("✅ STEP 4: Session valid → user authenticated");
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };
-    } catch (error) {
-      console.error("❌ STEP 4: No valid session → redirecting to login");
-      throw error;
+  } catch (error) {
+    // Only redirect to OAuth if this is a Shopify embedded app request
+    if (searchParams.shop && searchParams.embedded) {
+      console.log("🔄 STEP 1: No session found → redirecting to OAuth");
+      
+      // Use top-level=true to avoid iframe issues
+      if (searchParams.embedded === "1") {
+        console.log("🔄 Opening OAuth in new window to avoid iframe issues");
+        throw redirect("/auth/login?top-level=true");
+      }
+      
+      throw redirect(`/auth/login?${url.searchParams.toString()}`);
     }
+    
+    console.error("❌ STEP 4: No valid session → redirecting to login");
+    throw error;
+  }
 };
 
 export default function App() {
