@@ -8,19 +8,11 @@ import styles from "./styles.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  
-  // Check if this is a Shopify embedded app request
-  if (url.searchParams.get("shop") && url.searchParams.get("embedded")) {
-    console.log("🔄 STEP 1: Shopify embedded app detected → redirecting to OAuth");
-    throw redirect("/auth/login?shop=" + url.searchParams.get("shop") + "&top-level=true");
-  }
 
   if (url.searchParams.get("shop")) {
-    console.log("🔄 STEP 1: Returning from OAuth → redirecting to app");
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  console.log("🔄 STEP 1: Showing login form");
   return { showForm: Boolean(login) };
 };
 

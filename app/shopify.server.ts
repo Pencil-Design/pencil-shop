@@ -7,63 +7,8 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
-// Test database connection
-prisma.$connect()
-  .then(() => {
-    console.log("✅ Database connected");
-  })
-  .catch((error) => {
-    console.error("❌ Database connection failed:", error);
-  });
-
-// Session storage with minimal logging
-const prismaSessionStorage = new PrismaSessionStorage(prisma);
-
-// Wrap session storage methods with minimal logging
-const originalStoreSession = prismaSessionStorage.storeSession.bind(prismaSessionStorage);
-const originalLoadSession = prismaSessionStorage.loadSession.bind(prismaSessionStorage);
-const originalDeleteSession = prismaSessionStorage.deleteSession.bind(prismaSessionStorage);
-
-prismaSessionStorage.storeSession = async (session) => {
-  console.log("💾 Storing session for shop:", session.shop);
-  try {
-    const result = await originalStoreSession(session);
-    console.log("✅ Session stored");
-    return result;
-  } catch (error) {
-    console.error("❌ Failed to store session:", error);
-    throw error;
-  }
-};
-
-prismaSessionStorage.loadSession = async (id) => {
-  try {
-    const session = await originalLoadSession(id);
-    if (session) {
-      console.log("✅ Session found for shop:", session.shop);
-    } else {
-      console.log("⚠️ No session found for ID:", id);
-    }
-    return session;
-  } catch (error) {
-    console.error("❌ Failed to load session:", error);
-    throw error;
-  }
-};
-
-prismaSessionStorage.deleteSession = async (id) => {
-  try {
-    const result = await originalDeleteSession(id);
-    console.log("🗑️ Session deleted");
-    return result;
-  } catch (error) {
-    console.error("❌ Failed to delete session:", error);
-    throw error;
-  }
-};
-
 const shopify = shopifyApp({
-  apiKey: process.env.SHOPIFY_API_KEY!,
+  apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October24,
   scopes: [
@@ -77,8 +22,8 @@ const shopify = shopifyApp({
   ],
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: prismaSessionStorage,
-  distribution: AppDistribution.SingleMerchant,
+  sessionStorage: new PrismaSessionStorage(prisma),
+  distribution: AppDistribution.AppStore,
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,
@@ -86,11 +31,6 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
-  // 🔑 Add secure cookie options for embedded apps
-  cookieOptions: {
-    sameSite: "none", // required so cookies can be sent inside the iframe
-    secure: true,     // required on HTTPS (App Runner already uses HTTPS)
-  },
 });
 
 export default shopify;
