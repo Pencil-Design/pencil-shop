@@ -8,17 +8,11 @@ import styles from "./styles.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
-  console.log("🔍 [_index] Loader called with URL:", request.url);
-  console.log("🔍 [_index] Search params:", Object.fromEntries(url.searchParams.entries()));
 
   if (url.searchParams.get("shop")) {
-    console.log("🔍 [_index] Shop param found, redirecting to /app");
-    console.log("📝 [_index] This means user is coming back from OAuth flow");
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  console.log("🔍 [_index] No shop param, showing login form");
-  console.log("📝 [_index] User needs to enter their shop domain to start OAuth");
   return { showForm: Boolean(login) };
 };
 
