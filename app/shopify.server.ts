@@ -63,7 +63,7 @@ prismaSessionStorage.deleteSession = async (id) => {
 };
 
 const shopify = shopifyApp({
-  apiKey: process.env.SHOPIFY_API_KEY!,
+  apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October24,
   scopes: [
@@ -86,11 +86,6 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
-  // 🔑 Add secure cookie options for embedded apps
-  cookieOptions: {
-    sameSite: "none", // required so cookies can be sent inside the iframe
-    secure: true,     // required on HTTPS (App Runner already uses HTTPS)
-  },
 });
 
 export default shopify;
