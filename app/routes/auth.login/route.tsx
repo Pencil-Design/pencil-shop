@@ -15,7 +15,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return new Response(
       `<script>
          console.log("🔄 STEP 1 (client): Forcing top-level redirect for ${shop}");
-         window.top.location.href = "https://mcm7prt4qj.us-east-1.awsapprunner.com/auth/login?shop=${shop}&top-level=true";
+         window.top.location.href = "/auth/login?shop=${shop}&top-level=true";
        </script>`,
       { headers: { "Content-Type": "text/html" } }
     );
