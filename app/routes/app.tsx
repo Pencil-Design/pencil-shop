@@ -27,7 +27,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Use top-level=true to avoid iframe issues
       if (searchParams.embedded === "1") {
         console.log("🔄 Opening OAuth in new window to avoid iframe issues");
-        throw redirect("/auth/login?shop=" + searchParams.shop + "&top-level=true");
+        throw redirect("/auth/login?top-level=true");
       }
       
       throw redirect(`/auth/login?${url.searchParams.toString()}`);
