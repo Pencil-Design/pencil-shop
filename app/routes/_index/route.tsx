@@ -7,12 +7,15 @@ import { login } from "../../shopify.server";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  console.log(`[INDEX] Route hit: ${request.url}`);
   const url = new URL(request.url);
 
   if (url.searchParams.get("shop")) {
+    console.log(`[INDEX] Shop param found, redirecting to /app`);
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
+  console.log(`[INDEX] Showing landing page`);
   return { showForm: Boolean(login) };
 };
 

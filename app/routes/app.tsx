@@ -10,8 +10,13 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  console.log(`[APP] Route hit: ${request.url}`);
   const { redirect } = await authenticate.admin(request);
-  if (redirect) return redirect;
+  if (redirect) {
+    console.log(`[APP] Redirecting to authentication`);
+    return redirect;
+  }
+  console.log(`[APP] Authenticated successfully`);
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
 
