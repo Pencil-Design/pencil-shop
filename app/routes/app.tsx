@@ -11,13 +11,19 @@ export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log(`[APP] Route hit: ${request.url}`);
-  const { redirect } = await authenticate.admin(request);
-  if (redirect) {
-    console.log(`[APP] Redirecting to authentication`);
-    return redirect;
+  console.log(`[APP] SHOPIFY_APP_URL: ${process.env.SHOPIFY_APP_URL}`);
+  try {
+    const { redirect } = await authenticate.admin(request);
+    if (redirect) {
+      console.log(`[APP] Redirecting to authentication`);
+      return redirect;
+    }
+    console.log(`[APP] Authenticated successfully`);
+    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  } catch (error) {
+    console.log(`[APP] Authentication error:`, error);
+    throw error;
   }
-  console.log(`[APP] Authenticated successfully`);
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
 
 export default function App() {
