@@ -2,7 +2,7 @@
 
 client_id = "083e72c4309ebc15af670292fc106d87"
 name = "pencil-shop-dev"
-application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com"
+application_url = "https://mcm7prt4qj.us-east-1.awsapprunner.com/app"
 embedded = true
 
 [build]

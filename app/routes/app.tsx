@@ -10,16 +10,14 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    await authenticate.admin(request);
-    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
-  } catch (error) {
-    console.error("/app loader authenticate.admin failed", {
-      url: request.url,
-      message: (error as Error).message,
-    });
-    throw error;
+  console.log(`[APP] Route hit: ${request.url}`);
+  const { redirect } = await authenticate.admin(request);
+  if (redirect) {
+    console.log(`[APP] Redirecting to authentication`);
+    return redirect;
   }
+  console.log(`[APP] Authenticated successfully`);
+  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
 
 export default function App() {
