@@ -11,26 +11,29 @@ export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log(`[APP] Route hit: ${request.url}`);
-  console.log(`[APP] SHOPIFY_APP_URL: ${process.env.SHOPIFY_APP_URL}`);
   try {
-    const { redirect } = await authenticate.admin(request);
-    if (redirect) {
-      console.log(`[APP] Redirecting to authentication`);
-      return redirect;
-    }
-    console.log(`[APP] Authenticated successfully`);
+    await authenticate.admin(request);
+
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+
   } catch (error) {
-    console.log(`[APP] Authentication error:`, error);
+    console.error(`[APP] Authentication error:`, error);
     throw error;
   }
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
   const [search] = useSearchParams();
   const qs = search.toString();
   const withQS = (path: string) => (qs ? `${path}?${qs}` : path);
+
+  // Handle case where loader returns redirect (loaderData will be null)
+  if (!loaderData) {
+    return <div>Loading...</div>;
+  }
+
+  const { apiKey } = loaderData;
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
