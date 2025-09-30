@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("SQLITE_URL")
+  url      = "file:/tmp/prod.sqlite"
 }
 
 model Session {
