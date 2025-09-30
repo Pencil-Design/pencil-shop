@@ -18,7 +18,7 @@ export default async function handleRequest(
 ) {
   addDocumentResponseHeaders(request, responseHeaders);
   // Remove X-Frame-Options which conflicts with frame-ancestors
-  responseHeaders.delete("X-Frame-Options");
+  // responseHeaders.delete("X-Frame-Options");
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? '')
     ? "onAllReady"
@@ -54,6 +54,8 @@ export default async function handleRequest(
       }
     );
 
+    // Automatically timeout the React renderer after 6 seconds, which ensures
+    // React has enough time to flush down the rejected boundary contents
     setTimeout(abort, streamTimeout + 1000);
   });
 }
