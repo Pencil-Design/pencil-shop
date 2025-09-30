@@ -4,7 +4,7 @@
   "scripts": {
     "build": "remix vite:build",
     "prisma:generate": "prisma generate",
-    "prisma:prepare": "prisma generate && (prisma migrate deploy || (echo \"No migration history found; baselining 0001_init\" && prisma migrate resolve --applied 0001_init && prisma migrate deploy))",
+    "prisma:prepare": "prisma generate && prisma migrate deploy",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
