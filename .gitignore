@@ -7,6 +7,10 @@ node_modules
 /public/build/
 /public/_dev
 /app/public/build
+# SQLite databases
+dev.sqlite
+*.sqlite
+*.sqlite-journal
 /prisma/dev.sqlite
 /prisma/dev.sqlite-journal
 database.sqlite
