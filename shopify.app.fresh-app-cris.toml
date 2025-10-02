@@ -2,7 +2,7 @@
 
 client_id = "88ac1c4526a866af76be341d29526cf2"
 name = "fresh-app-cris"
-application_url = "https://shopify-dev.pencildesign.co"
+application_url = "https://fresh-app-cris.fly.dev"
 embedded = true
 
 [build]
@@ -16,4 +16,8 @@ api_version = "2026-01"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://shopify-dev.pencildesign.co/api/auth" ]
+redirect_urls = [
+  "https://fresh-app-cris.fly.dev/auth/callback",
+  "https://fresh-app-cris.fly.dev/auth/shopify/callback",
+  "https://fresh-app-cris.fly.dev/api/auth/callback"
+]
