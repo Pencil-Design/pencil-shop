@@ -2,7 +2,7 @@
 
 client_id = "083e72c4309ebc15af670292fc106d87"
 name = "pencil-shop-dev"
-application_url = "https://example.com"
+application_url = "https://pencil-shop-dev.fly.dev"
 embedded = true
 
 [build]
@@ -17,12 +17,12 @@ scopes = "read_inventory,read_products,read_publications,write_inventory,write_p
 
 [auth]
 redirect_urls = [
-  "https://example.com/api/auth",
-  "https://example.com/auth",
-  "https://example.com/auth/callback"
+  "https://pencil-shop-dev.fly.dev/auth/callback",
+  "https://pencil-shop-dev.fly.dev/auth/shopify/callback",
+  "https://pencil-shop-dev.fly.dev/api/auth/callback"
 ]
 
 [app_proxy]
-url = "https://example.com/proxy"
+url = "https://pencil-shop-dev.fly.dev/proxy"
 subpath = "designer"
 prefix = "apps"

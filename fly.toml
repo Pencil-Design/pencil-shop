@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for pencil-shop-dev on 2025-10-02T10:31:54-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'pencil-shop-dev'
+primary_region = 'gru'
+
+[env]
+  PORT = '3000'
+  SHOPIFY_APP_URL = 'https://pencil-shop-dev.fly.dev'
+  SHOPIFY_API_KEY = '083e72c4309ebc15af670292fc106d87'
+  SCOPES = 'read_inventory,read_products,read_publications,write_inventory,write_product_listings,write_products,write_publications'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
