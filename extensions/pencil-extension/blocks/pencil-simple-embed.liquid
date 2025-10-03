@@ -173,28 +173,44 @@
   })();
 
   window.addEventListener("message", async (event) => {
+    // Debug: Log all incoming messages
+    console.log('🔍 Received message:', {
+      origin: event.origin,
+      type: event.data?.type,
+      data: event.data,
+      timestamp: new Date().toISOString()
+    });
+
     if (event.data?.source === 'react-devtools-content-script' || 
         event.data?.source === 'react-devtools-bridge' ||
         event.origin === window.location.origin) {
+      console.log('🚫 Filtered out React DevTools message');
       return;
     }
 
     if (!event.data || typeof event.data !== 'object' || Array.isArray(event.data)) {
+      console.log('🚫 Invalid message data structure');
       return;
     }
 
     if (event.origin && !event.origin.includes('trycloudflare.com') && !event.origin.includes('localhost')) {
+      console.log('🚫 Origin filtered out:', event.origin);
       return;
     }
 
     if (!event.origin) {
       if (event.data.type === 'SHOP_PAGE_DATA' || event.data.type === 'DESIGNER_READY') {
+        console.log('✅ Allowing message from unknown origin:', event.data.type);
       } else {
+        console.log('🚫 Blocking message from unknown origin:', event.data.type);
         return;
       }
     } else {
       if (!ALLOWED_ORIGINS.some(origin => event.origin.startsWith(origin))) {
+        console.log('🚫 Origin not in allowed origins:', event.origin, 'Allowed:', ALLOWED_ORIGINS);
         return;
+      } else {
+        console.log('✅ Origin allowed:', event.origin);
       }
     }
 
@@ -261,6 +277,12 @@
           }
         } else {
           const errorText = await response.text();
+          console.log('❌ Fetch response failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorText,
+            timestamp: new Date().toISOString()
+          });
           iframe.contentWindow.postMessage({ 
             type: "PRODUCT:CREATE_ERROR", 
             payload: { error: "Failed to create product", details: errorText } 
@@ -268,6 +290,11 @@
           hideLoading();
         }
       } catch (error) {
+        console.log('💥 Fetch exception caught:', {
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
         iframe.contentWindow.postMessage({ 
           type: "PRODUCT:CREATE_ERROR", 
           payload: { error: error.message } 
@@ -277,8 +304,20 @@
     }
 
     if (type === "PRODUCT:CREATE_AND_ADD") {
+      console.log('🎯 PRODUCT:CREATE_AND_ADD handler triggered!', {
+        payload,
+        timestamp: new Date().toISOString()
+      });
+      
       try {
         showLoading();
+        
+        console.log('📡 Making fetch request to /apps/designer/create-product', {
+          url: '/apps/designer/create-product',
+          method: 'POST',
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(payload)
+        });
         
         const response = await fetch("/apps/designer/create-product", {
           method: "POST",
@@ -286,8 +325,21 @@
           body: JSON.stringify(payload)
         });
         
+        console.log('📨 Fetch response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries()),
+          timestamp: new Date().toISOString()
+        });
+        
         if (response.ok) {
-          const { variantId } = await response.json();
+          const responseData = await response.json();
+          const { variantId } = responseData;
+          console.log('✅ Response successful:', {
+            variantId,
+            fullResponse: responseData
+          });
 
           try {
             await addAndRenderDrawer({
