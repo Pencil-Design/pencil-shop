@@ -251,8 +251,7 @@
             quantity: 1,
             properties: {},
           };
-
-          const response = await fetch('/apps/proxy/create-product', {
+          const response = await fetch('/apps/designer/create-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(productPayload),
@@ -347,14 +346,14 @@
         try {
           showLoading();
 
-          console.log('📡 Making fetch request to /apps/proxy/create-product', {
-            url: '/apps/proxy/create-product',
+          console.log('📡 Making fetch request to /apps/designer/create-product', {
+            url: '/apps/designer/create-product',
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(payload),
           });
 
-          const response = await fetch('/apps/proxy/create-product', {
+          const response = await fetch('/apps/designer/create-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(payload),

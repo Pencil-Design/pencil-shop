@@ -19,8 +19,8 @@ database.sqlite
 .env.*
 
 
-
-
+# ignore shopify.app.pencil-shop.toml file
+shopify.app.pencil-shop.toml
 
 /extensions/*/dist
 
