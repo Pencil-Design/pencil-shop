@@ -24,7 +24,7 @@
   },
   "type": "module",
   "engines": {
-    "node": "^18.20 || ^20.10 || >=21.0.0"
+    "node": ">=20.10.0"
   },
   "dependencies": {
     "@flydotio/litestream": "^1.0.1",

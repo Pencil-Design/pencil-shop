@@ -19,10 +19,11 @@ scopes = "read_products,write_products,write_product_listings,read_inventory,wri
 redirect_urls = [
   "https://pencil-shop-dev.fly.dev/auth/callback",
   "https://pencil-shop-dev.fly.dev/auth/shopify/callback",
-  "https://pencil-shop-dev.fly.dev/api/auth/callback"
+  "https://pencil-shop-dev.fly.dev/api/auth/callback",
+  "https://pencil-shop-dev.fly.dev/api/auth"
 ]
 
 [app_proxy]
-url = "https://pencil-shop-dev.fly.dev"
-subpath = "proxy"
+url = "https://pencil-shop-dev.fly.dev/proxy"
+subpath = "designer"
 prefix = "apps"
