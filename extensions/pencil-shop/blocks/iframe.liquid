@@ -1,0 +1,359 @@
+<iframe
+  id="iframe-{{ block.id }}"
+  src="{{ block.settings.iframe_url }}"
+  width="{{ block.settings.width | default: '100%' }}"
+  height="{{ block.settings.height | default: '400' }}"
+  frameborder="{{ block.settings.frameborder | default: '0' }}"
+  allowfullscreen="{{ block.settings.allowfullscreen | default: true }}"
+  loading="lazy"
+  style="border: none; {{ block.settings.custom_css }}"
+  title="{{ block.settings.title | default: 'Embedded Content' }}"
+>
+</iframe>
+
+<button id="create-hardcoded-product" type="button" style="margin-top: 12px;">Create product from iframe</button>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const iframe = document.getElementById('iframe-{{ block.id }}');
+    let latestDesignData = null; // holds last message payload from iframe
+    let isCreating = false;
+    let lastCreatedModelId = null;
+
+    async function createProductFromIframeData(designData) {
+      try {
+        const inferredTitle = designData && designData.productName ? String(designData.productName) : 'Custom Design';
+        const inferredCurrency = designData && designData.currency ? String(designData.currency) : 'USD';
+        const inferredModelId = designData && designData.modelId ? String(designData.modelId) : undefined;
+        const inferredPrice = designData && designData.price != null ? String(designData.price) : '9.99';
+        const inferredSku = inferredModelId || 'SKU-' + Date.now(); // prefer modelId for sku
+
+        if (!inferredModelId) {
+          alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
+          return;
+        }
+        // Try multiple proxy paths to support different subpaths between local/dev
+        const endpoints = ['/apps/pencilshop2/create-product'];
+        let res = null;
+        for (const endpoint of endpoints) {
+          try {
+            const attempt = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: inferredTitle,
+                price: inferredPrice,
+                sku: inferredSku,
+                currency: inferredCurrency,
+                modelId: inferredModelId,
+                source: 'iframe',
+              }),
+            });
+            console.log('Proxy attempt', endpoint, '-> status', attempt.status);
+            if (attempt.status !== 404) {
+              res = attempt;
+              break;
+            }
+          } catch (e) {
+            // continue to next endpoint
+            console.warn('Proxy attempt failed', endpoint, e);
+          }
+        }
+
+        if (!res) {
+          alert('Error creating product: no reachable proxy endpoint');
+          return;
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+        if (!res.ok) {
+          console.error('Create failed:', payload);
+          const message = typeof payload === 'string' ? payload : (payload && payload.error) || 'Unknown error';
+          alert('Error creating product: ' + message);
+          return;
+        }
+
+        if (typeof payload === 'object' && payload !== null) {
+          let variantId = payload.variantId || null;
+
+          try {
+            if (!variantId && payload.handle) {
+              const pRes = await fetch('/products/' + payload.handle + '.js', {
+                headers: { Accept: 'application/json' },
+              });
+              if (pRes.ok) {
+                const pJson = await pRes.json();
+                variantId = pJson && pJson.variants && pJson.variants[0] ? String(pJson.variants[0].id) : null;
+              }
+            }
+
+            if (variantId) {
+              const addRes = await fetch('/cart/add.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ items: [{ id: Number(variantId), quantity: 1 }] }),
+              });
+              const addBody = await addRes.text();
+              if (!addRes.ok) {
+                console.error('Add to cart failed:', addBody);
+                alert('Product created, but failed to add to cart.');
+                return;
+              }
+              window.location.href = '/cart';
+              return;
+            }
+          } catch (err) {
+            console.error('Add to cart error:', err);
+          }
+
+          alert(
+            'Created product ' +
+              (payload.productId || '') +
+              ' with handle ' +
+              (payload.handle || '') +
+              '. Unable to add to cart automatically.'
+          );
+        } else {
+          alert('Product created. Response: ' + payload);
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Network error creating product');
+      }
+    }
+
+    // Add a simple button-triggered creator using the app proxy
+    const createBtn = document.getElementById('create-hardcoded-product');
+    if (createBtn) {
+      createBtn.addEventListener('click', async () => {
+        try {
+          // NOTE: Your app proxy subpath is currently set to "apps" in shopify.app.toml.
+          // That means the storefront endpoint is /apps/apps/... and forwards to your app as /... .
+          // Build payload from the latest iframe message
+          const inferredTitle =
+            latestDesignData && latestDesignData.productName ? String(latestDesignData.productName) : 'Custom Design';
+          const inferredCurrency =
+            latestDesignData && latestDesignData.currency ? String(latestDesignData.currency) : 'USD';
+          const inferredModelId =
+            latestDesignData && latestDesignData.modelId ? String(latestDesignData.modelId) : undefined;
+          const inferredPrice =
+            latestDesignData && latestDesignData.price != null ? String(latestDesignData.price) : '9.99';
+          const inferredSku = inferredModelId || 'SKU-' + Date.now(); // as requested, prefer modelId for sku
+
+          if (!inferredModelId) {
+            alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
+            return;
+          }
+
+          const res = await fetch('/apps/pencilshop2/create-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: inferredTitle,
+              price: inferredPrice,
+              sku: inferredSku, // sku uses modelId when provided
+              currency: inferredCurrency,
+              modelId: inferredModelId,
+              source: 'iframe',
+            }),
+          });
+
+          const contentType = res.headers.get('content-type') || '';
+          const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+          if (!res.ok) {
+            console.error('Create failed:', payload);
+            const message = typeof payload === 'string' ? payload : (payload && payload.error) || 'Unknown error';
+            alert('Error creating product: ' + message);
+            return;
+          }
+
+          // Try to add the created product to cart using its variantId (or resolve from handle)
+          if (typeof payload === 'object' && payload !== null) {
+            let variantId = payload.variantId || null;
+
+            try {
+              if (!variantId && payload.handle) {
+                // Fallback: resolve first variant id from product handle
+                const pRes = await fetch('/products/' + payload.handle + '.js', {
+                  headers: { Accept: 'application/json' },
+                });
+                if (pRes.ok) {
+                  const pJson = await pRes.json();
+                  variantId = pJson && pJson.variants && pJson.variants[0] ? String(pJson.variants[0].id) : null;
+                }
+              }
+
+              if (variantId) {
+                const addRes = await fetch('/cart/add.js', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ items: [{ id: Number(variantId), quantity: 1 }] }),
+                });
+                const addBody = await addRes.text(); // Avoid parse errors on theme variants
+                if (!addRes.ok) {
+                  console.error('Add to cart failed:', addBody);
+                  alert('Product created, but failed to add to cart.');
+                  return;
+                }
+                // Redirect to cart to show the item
+                window.location.href = '/cart';
+                return;
+              }
+            } catch (err) {
+              console.error('Add to cart error:', err);
+            }
+
+            // If we reach here, we could not add to cart
+            alert(
+              'Created product ' +
+                (payload.productId || '') +
+                ' with handle ' +
+                (payload.handle || '') +
+                '. Unable to add to cart automatically.'
+            );
+          } else {
+            alert('Product created. Response: ' + payload);
+          }
+        } catch (e) {
+          console.error(e);
+          alert('Network error creating product');
+        }
+      });
+    }
+
+    if (iframe) {
+      // Listen for messages from the iframe
+      window.addEventListener('message', async function (event) {
+        // Skip React DevTools messages - more comprehensive filtering
+        const isReactDevTools =
+          event.origin.includes('react-devtools') ||
+          event.origin.includes('chrome-extension://') ||
+          (event.data &&
+            typeof event.data === 'string' &&
+            (event.data.includes('react-devtools') ||
+              event.data.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__') ||
+              event.data.includes('React DevTools'))) ||
+          (event.data &&
+            typeof event.data === 'object' &&
+            (event.data.source === 'react-devtools-content-script' || event.data.source === 'react-devtools'));
+
+        if (isReactDevTools) {
+          return;
+        }
+
+        // Log all other messages from iframes
+        console.log('Message received from iframe TEST 2:', {
+          origin: event.origin,
+          data: event.data,
+          source: event.source,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Capture structured payload for product creation if present
+        if (event.data && typeof event.data === 'object') {
+          const d = event.data;
+          // Expecting fields: productName, currency, modelId, price (optional)
+          if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d) {
+            latestDesignData = d;
+            // Auto-create immediately on message; avoid duplicates for the same modelId
+            if (!isCreating && d.modelId && d.modelId !== lastCreatedModelId) {
+              try {
+                isCreating = true;
+                await createProductFromIframeData(d);
+                lastCreatedModelId = d.modelId;
+              } finally {
+                isCreating = false;
+              }
+            }
+          }
+        }
+
+        // Optional: Filter messages from specific origins for security
+        // if (event.origin === 'https://your-trusted-domain.com') {
+        //   console.log('Trusted message from iframe:', event.data);
+        // }
+      });
+
+      // Optional: Send a message to the iframe when it loads
+      iframe.addEventListener('load', function () {
+        console.log('Iframe loaded successfully');
+
+        // Example: Send a message to the iframe
+        // iframe.contentWindow.postMessage({
+        //   type: 'parent-ready',
+        //   message: 'Parent page is ready'
+        // }, '*');
+      });
+    }
+  });
+</script>
+
+{% if block.settings.show_fallback %}
+  <p>{{ 'iframe.fallback_text' | t }}</p>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Iframe Embed",
+  "target": "section",
+  "settings": [
+    {
+      "type": "url",
+      "id": "iframe_url",
+      "label": "Iframe URL",
+      "info": "Enter the URL to embed in the iframe"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Iframe Title",
+      "default": "Embedded Content",
+      "info": "Accessibility title for the iframe"
+    },
+    {
+      "type": "text",
+      "id": "width",
+      "label": "Width",
+      "default": "100%",
+      "info": "Width of the iframe (e.g., '100%', '800px')"
+    },
+    {
+      "type": "text",
+      "id": "height",
+      "label": "Height",
+      "default": "400",
+      "info": "Height of the iframe (e.g., '400px', '600')"
+    },
+    {
+      "type": "select",
+      "id": "frameborder",
+      "label": "Show Border",
+      "options": [
+        { "value": "0", "label": "No Border" },
+        { "value": "1", "label": "Show Border" }
+      ],
+      "default": "0"
+    },
+    {
+      "type": "checkbox",
+      "id": "allowfullscreen",
+      "label": "Allow Fullscreen",
+      "default": true
+    },
+    {
+      "type": "textarea",
+      "id": "custom_css",
+      "label": "Custom CSS",
+      "info": "Additional CSS styles for the iframe"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_fallback",
+      "label": "Show Fallback Text",
+      "default": false,
+      "info": "Show fallback text if iframe fails to load"
+    }
+  ]
+}
+{% endschema %}
