@@ -92,6 +92,12 @@ export async function action({ request }: ActionFunctionArgs) {
                     ],
                     metafields: [
                         {
+                            namespace: "seo",
+                            key: "hidden",
+                            value: "true",
+                            type: "boolean"
+                        },
+                        {
                             namespace: "custom",
                             key: "hidden_from_shop",
                             value: "true",
@@ -349,6 +355,8 @@ export async function action({ request }: ActionFunctionArgs) {
 
         console.log('✅ Product published to Online Store successfully!');
 
+        // Handle collection management for hidden-from-shop products
+        await hideProductFromShopfront(admin, product.id);
 
         // Save to database
         try {
@@ -424,5 +432,300 @@ export async function action({ request }: ActionFunctionArgs) {
             status: 500,
             headers: { "content-type": "application/json" },
         });
+    }
+}
+
+/**
+ * Complete workflow to hide a product from shopfront while keeping it published
+ */
+async function hideProductFromShopfront(admin: any, productId: string): Promise<void> {
+    try {
+        console.log(`🚀 Starting hide workflow for product: ${productId}`);
+
+        // 1. Set seo.hidden metafield
+        await setSeoHiddenMetafield(admin, productId);
+
+        // 2. Remove from manual collections
+        await removeFromManualCollections(admin, productId);
+
+        // 3. Update smart collections
+        await updateSmartCollectionsToExcludeHidden(admin, productId);
+
+        console.log('✅ Hide workflow completed');
+    } catch (error) {
+        console.error('❌ Error in hide workflow:', error);
+        // Don't fail the entire request if hide workflow fails
+    }
+}
+
+/**
+ * Sets the seo.hidden metafield on a product to hide it from search
+ */
+async function setSeoHiddenMetafield(admin: any, productId: string): Promise<void> {
+    try {
+        console.log(`🔍 Setting seo.hidden metafield for product: ${productId}`);
+
+        const metafieldResponse = await admin.graphql(`
+            mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+                metafieldsSet(metafields: $metafields) {
+                    metafields {
+                        id
+                        namespace
+                        key
+                        value
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        `, {
+            variables: {
+                metafields: [{
+                    ownerId: productId,
+                    namespace: "seo",
+                    key: "hidden",
+                    value: "true",
+                    type: "boolean"
+                }]
+            }
+        });
+
+        const metafieldData = await metafieldResponse.json() as any;
+
+        if (metafieldData.data.metafieldsSet.userErrors.length > 0) {
+            console.error('❌ Error setting seo.hidden metafield:', metafieldData.data.metafieldsSet.userErrors);
+        } else {
+            console.log('✅ seo.hidden metafield set successfully');
+        }
+    } catch (error) {
+        console.error('❌ Error setting seo.hidden metafield:', error);
+    }
+}
+
+/**
+ * Removes a product from all manual collections
+ */
+async function removeFromManualCollections(admin: any, productId: string): Promise<void> {
+    try {
+        console.log(`🗑️ Removing product from manual collections: ${productId}`);
+
+        // Get ALL collections in the store and check which ones contain this product
+        const allCollectionsResponse = await admin.graphql(`
+            query getAllCollectionsWithProduct($productId: String!) {
+                collections(first: 100) {
+                    nodes {
+                        id
+                        title
+                        handle
+                        publishedAt
+                        ruleSet {
+                            appliedDisjunctively
+                            rules {
+                                column
+                                relation
+                                condition
+                            }
+                        }
+                        products(first: 1, query: "id:${productId.replace('gid://shopify/Product/', '')}") {
+                            nodes {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+        `);
+
+        const allCollectionsData = await allCollectionsResponse.json() as any;
+        const allCollections = allCollectionsData.data.collections.nodes;
+
+        // Find collections that actually contain this product
+        const collectionsWithProduct = allCollections.filter((collection: any) =>
+            collection.products.nodes.length > 0
+        );
+
+        // Filter to only manual collections (no rules)
+        const manualCollections = collectionsWithProduct.filter((collection: any) =>
+            !collection.ruleSet || !collection.ruleSet.rules || collection.ruleSet.rules.length === 0
+        );
+
+        console.log(`📦 Found ${manualCollections.length} manual collections containing this product`);
+
+        for (const collection of manualCollections) {
+            console.log(`🗑️ Removing from manual collection: ${collection.title} (${collection.handle})`);
+            await removeProductFromManualCollection(admin, collection.id, productId);
+        }
+    } catch (error) {
+        console.error('❌ Error removing from manual collections:', error);
+    }
+}
+
+/**
+ * Updates smart collections to exclude products with hidden-from-shop tag
+ */
+async function updateSmartCollectionsToExcludeHidden(admin: any, productId: string): Promise<void> {
+    try {
+        console.log(`🔧 Updating smart collections to exclude hidden products: ${productId}`);
+
+        // Get ALL collections in the store and check which ones contain this product
+        const allCollectionsResponse = await admin.graphql(`
+            query getAllCollectionsWithProduct($productId: String!) {
+                collections(first: 100) {
+                    nodes {
+                        id
+                        title
+                        handle
+                        publishedAt
+                        ruleSet {
+                            appliedDisjunctively
+                            rules {
+                                column
+                                relation
+                                condition
+                            }
+                        }
+                        products(first: 1, query: "id:${productId.replace('gid://shopify/Product/', '')}") {
+                            nodes {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+        `);
+
+        const allCollectionsData = await allCollectionsResponse.json() as any;
+        const allCollections = allCollectionsData.data.collections.nodes;
+
+        // Find collections that actually contain this product
+        const collectionsWithProduct = allCollections.filter((collection: any) =>
+            collection.products.nodes.length > 0
+        );
+
+        // Filter to only smart collections (has rules)
+        const smartCollections = collectionsWithProduct.filter((collection: any) =>
+            collection.ruleSet && collection.ruleSet.rules && collection.ruleSet.rules.length > 0
+        );
+
+        console.log(`📦 Found ${smartCollections.length} smart collections containing this product`);
+
+        for (const collection of smartCollections) {
+            console.log(`🔧 Updating smart collection: ${collection.title} (${collection.handle})`);
+            await updateSmartCollectionRules(admin, collection);
+        }
+    } catch (error) {
+        console.error('❌ Error updating smart collections:', error);
+    }
+}
+
+/**
+ * Removes a product from a specific manual collection
+ */
+async function removeProductFromManualCollection(admin: any, collectionId: string, productId: string): Promise<void> {
+    try {
+        const removeResponse = await admin.graphql(`
+            mutation collectionRemoveProducts($id: ID!, $productIds: [ID!]!) {
+                collectionRemoveProducts(id: $id, productIds: $productIds) {
+                    job {
+                        id
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        `, {
+            variables: {
+                id: collectionId,
+                productIds: [productId]
+            }
+        });
+
+        const removeData = await removeResponse.json() as any;
+
+        if (removeData.data.collectionRemoveProducts.userErrors.length > 0) {
+            console.error('❌ Error removing product from collection:', removeData.data.collectionRemoveProducts.userErrors);
+        } else {
+            console.log('✅ Product removed from manual collection');
+        }
+    } catch (error) {
+        console.error('❌ Error removing product from manual collection:', error);
+    }
+}
+
+/**
+ * Updates smart collection rules to exclude products with hidden-from-shop tag
+ */
+async function updateSmartCollectionRules(admin: any, collection: any): Promise<void> {
+    try {
+        const existingRules = collection.ruleSet.rules || [];
+
+        // Check if we already have a rule to exclude hidden-from-shop products
+        const hasHiddenRule = existingRules.some((rule: any) =>
+            rule.column === 'TAG' &&
+            rule.relation === 'NOT_EQUALS' &&
+            rule.condition === 'hidden-from-shop'
+        );
+
+        if (hasHiddenRule) {
+            console.log('✅ Collection already has rule to exclude hidden-from-shop products');
+            return;
+        }
+
+        // Add new rule to exclude hidden-from-shop products
+        const updatedRules = [
+            ...existingRules,
+            {
+                column: 'TAG',
+                relation: 'NOT_EQUALS',
+                condition: 'hidden-from-shop'
+            }
+        ];
+
+        const updateResponse = await admin.graphql(`
+            mutation collectionUpdate($input: CollectionInput!) {
+                collectionUpdate(input: $input) {
+                    collection {
+                        id
+                        title
+                        ruleSet {
+                            appliedDisjunctively
+                            rules {
+                                column
+                                relation
+                                condition
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        `, {
+            variables: {
+                input: {
+                    id: collection.id,
+                    ruleSet: {
+                        appliedDisjunctively: collection.ruleSet.appliedDisjunctively,
+                        rules: updatedRules
+                    }
+                }
+            }
+        });
+
+        const updateData = await updateResponse.json() as any;
+
+        if (updateData.data.collectionUpdate.userErrors.length > 0) {
+            console.error('❌ Error updating smart collection rules:', updateData.data.collectionUpdate.userErrors);
+        } else {
+            console.log('✅ Smart collection rules updated to exclude hidden-from-shop products');
+        }
+    } catch (error) {
+        console.error('❌ Error updating smart collection rules:', error);
     }
 }
