@@ -1,27 +1,83 @@
-<iframe
-  id="iframe-{{ block.id }}"
-  src="{{ block.settings.iframe_url }}"
-  width="{{ block.settings.width | default: '100%' }}"
-  height="{{ block.settings.height | default: '400' }}"
-  frameborder="{{ block.settings.frameborder | default: '0' }}"
-  allowfullscreen="{{ block.settings.allowfullscreen | default: true }}"
-  loading="lazy"
-  style="border: none; {{ block.settings.custom_css }}"
-  title="{{ block.settings.title | default: 'Embedded Content' }}"
->
-</iframe>
+<style>
+  #shopify-block-{{ block.id }} {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+  }
 
-<button id="create-hardcoded-product" type="button" style="margin-top: 12px;">Create product from iframe</button>
+  /* Wrapper around the iframe should stretch in flex/grid contexts */
+  #shopify-block-{{ block.id }} .embed-wrapper {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: block;
+  }
+
+  /* Ensure iframe respects height setting and displays properly */
+  #shopify-block-{{ block.id }} .embed-wrapper iframe {
+    display: block;
+    width: 100%;
+    border: 0;
+    height: {{ block.settings.height | default: '600' }}px;
+    min-height: {{ block.settings.height | default: '600' }}px;
+  }
+</style>
+
+<div class="embed-wrapper">
+  <iframe
+    id="iframe-{{ block.id }}"
+    src="{{ block.settings.iframe_url }}"
+    width="100%"
+    height="{{ block.settings.height | default: '600' }}"
+    frameborder="0"
+    allowfullscreen="true"
+    loading="lazy"
+    title="{{ block.settings.title | default: 'Embedded Content' }}"
+  >
+  </iframe>
+
+  <!-- Loading overlay -->
+  <div
+    id="loading-overlay-{{ block.id }}"
+    style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); z-index: 1000; justify-content: center; align-items: center; flex-direction: column;"
+  >
+    <div
+      style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;"
+    ></div>
+    <div style="color: #333; font-family: Arial, sans-serif; font-size: 14px;">Creating product...</div>
+  </div>
+</div>
+
+<style>
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .embed-wrapper {
+    position: relative;
+  }
+</style>
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const iframe = document.getElementById('iframe-{{ block.id }}');
     let latestDesignData = null; // holds last message payload from iframe
-    let isCreating = false;
-    let lastCreatedModelId = null;
 
     async function createProductFromIframeData(designData) {
+      const loadingOverlay = document.getElementById('loading-overlay-{{ block.id }}');
+
       try {
+        // Show loading overlay
+        if (loadingOverlay) {
+          loadingOverlay.style.display = 'flex';
+        }
+
         const inferredTitle = designData && designData.productName ? String(designData.productName) : 'Custom Design';
         const inferredCurrency = designData && designData.currency ? String(designData.currency) : 'USD';
         const inferredModelId = designData && designData.modelId ? String(designData.modelId) : undefined;
@@ -29,6 +85,9 @@
         const inferredSku = inferredModelId || 'SKU-' + Date.now(); // prefer modelId for sku
 
         if (!inferredModelId) {
+          if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+          }
           alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
           return;
         }
@@ -61,6 +120,9 @@
         }
 
         if (!res) {
+          if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+          }
           alert('Error creating product: no reachable proxy endpoint');
           return;
         }
@@ -70,6 +132,9 @@
         if (!res.ok) {
           console.error('Create failed:', payload);
           const message = typeof payload === 'string' ? payload : (payload && payload.error) || 'Unknown error';
+          if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+          }
           alert('Error creating product: ' + message);
           return;
         }
@@ -84,27 +149,46 @@
               });
               if (pRes.ok) {
                 const pJson = await pRes.json();
-                variantId = pJson && pJson.variants && pJson.variants[0] ? String(pJson.variants[0].id) : null;
+                if (pJson && pJson.variants && pJson.variants[0]) {
+                  const rawVariantId = String(pJson.variants[0].id);
+                  // Remove GID prefix if present
+                  variantId = rawVariantId.replace('gid://shopify/ProductVariant/', '');
+                }
               }
             }
 
             if (variantId) {
-              const addRes = await fetch('/cart/add.js', {
+              // Try to add to cart
+              const numericId = parseInt(variantId);
+              const cartRes = await fetch('/cart/add.js', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ items: [{ id: Number(variantId), quantity: 1 }] }),
+                body: JSON.stringify({ items: [{ id: numericId, quantity: 1 }] }),
               });
-              const addBody = await addRes.text();
-              if (!addRes.ok) {
-                console.error('Add to cart failed:', addBody);
-                alert('Product created, but failed to add to cart.');
-                return;
+
+              const cartBody = await cartRes.text();
+
+              if (cartRes.ok) {
+                // Hide loading overlay and redirect to cart
+                if (loadingOverlay) {
+                  loadingOverlay.style.display = 'none';
+                }
+                window.location.href = '/cart';
+              } else {
+                console.error('Cart add failed:', cartBody);
+                if (loadingOverlay) {
+                  loadingOverlay.style.display = 'none';
+                }
+                alert('Failed to add to cart: ' + cartBody);
               }
-              window.location.href = '/cart';
               return;
             }
           } catch (err) {
             console.error('Add to cart error:', err);
+            if (loadingOverlay) {
+              loadingOverlay.style.display = 'none';
+            }
+            alert('Error adding to cart: ' + err.message);
           }
 
           alert(
@@ -119,107 +203,11 @@
         }
       } catch (e) {
         console.error(e);
+        if (loadingOverlay) {
+          loadingOverlay.style.display = 'none';
+        }
         alert('Network error creating product');
       }
-    }
-
-    // Add a simple button-triggered creator using the app proxy
-    const createBtn = document.getElementById('create-hardcoded-product');
-    if (createBtn) {
-      createBtn.addEventListener('click', async () => {
-        try {
-          // NOTE: Your app proxy subpath is currently set to "apps" in shopify.app.toml.
-          // That means the storefront endpoint is /apps/apps/... and forwards to your app as /... .
-          // Build payload from the latest iframe message
-          const inferredTitle =
-            latestDesignData && latestDesignData.productName ? String(latestDesignData.productName) : 'Custom Design';
-          const inferredCurrency =
-            latestDesignData && latestDesignData.currency ? String(latestDesignData.currency) : 'USD';
-          const inferredModelId =
-            latestDesignData && latestDesignData.modelId ? String(latestDesignData.modelId) : undefined;
-          const inferredPrice =
-            latestDesignData && latestDesignData.price != null ? String(latestDesignData.price) : '9.99';
-          const inferredSku = inferredModelId || 'SKU-' + Date.now(); // as requested, prefer modelId for sku
-
-          if (!inferredModelId) {
-            alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
-            return;
-          }
-
-          const res = await fetch('/apps/pencilshop2/create-product', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: inferredTitle,
-              price: inferredPrice,
-              sku: inferredSku, // sku uses modelId when provided
-              currency: inferredCurrency,
-              modelId: inferredModelId,
-              source: 'iframe',
-            }),
-          });
-
-          const contentType = res.headers.get('content-type') || '';
-          const payload = contentType.includes('application/json') ? await res.json() : await res.text();
-          if (!res.ok) {
-            console.error('Create failed:', payload);
-            const message = typeof payload === 'string' ? payload : (payload && payload.error) || 'Unknown error';
-            alert('Error creating product: ' + message);
-            return;
-          }
-
-          // Try to add the created product to cart using its variantId (or resolve from handle)
-          if (typeof payload === 'object' && payload !== null) {
-            let variantId = payload.variantId || null;
-
-            try {
-              if (!variantId && payload.handle) {
-                // Fallback: resolve first variant id from product handle
-                const pRes = await fetch('/products/' + payload.handle + '.js', {
-                  headers: { Accept: 'application/json' },
-                });
-                if (pRes.ok) {
-                  const pJson = await pRes.json();
-                  variantId = pJson && pJson.variants && pJson.variants[0] ? String(pJson.variants[0].id) : null;
-                }
-              }
-
-              if (variantId) {
-                const addRes = await fetch('/cart/add.js', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                  body: JSON.stringify({ items: [{ id: Number(variantId), quantity: 1 }] }),
-                });
-                const addBody = await addRes.text(); // Avoid parse errors on theme variants
-                if (!addRes.ok) {
-                  console.error('Add to cart failed:', addBody);
-                  alert('Product created, but failed to add to cart.');
-                  return;
-                }
-                // Redirect to cart to show the item
-                window.location.href = '/cart';
-                return;
-              }
-            } catch (err) {
-              console.error('Add to cart error:', err);
-            }
-
-            // If we reach here, we could not add to cart
-            alert(
-              'Created product ' +
-                (payload.productId || '') +
-                ' with handle ' +
-                (payload.handle || '') +
-                '. Unable to add to cart automatically.'
-            );
-          } else {
-            alert('Product created. Response: ' + payload);
-          }
-        } catch (e) {
-          console.error(e);
-          alert('Network error creating product');
-        }
-      });
     }
 
     if (iframe) {
@@ -256,15 +244,9 @@
           // Expecting fields: productName, currency, modelId, price (optional)
           if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d) {
             latestDesignData = d;
-            // Auto-create immediately on message; avoid duplicates for the same modelId
-            if (!isCreating && d.modelId && d.modelId !== lastCreatedModelId) {
-              try {
-                isCreating = true;
-                await createProductFromIframeData(d);
-                lastCreatedModelId = d.modelId;
-              } finally {
-                isCreating = false;
-              }
+            // Auto-create immediately on message - allow multiple messages
+            if (d.modelId) {
+              await createProductFromIframeData(d);
             }
           }
         }
@@ -289,13 +271,9 @@
   });
 </script>
 
-{% if block.settings.show_fallback %}
-  <p>{{ 'iframe.fallback_text' | t }}</p>
-{% endif %}
-
 {% schema %}
 {
-  "name": "Iframe Embed",
+  "name": "Pencil Shop Embed",
   "target": "section",
   "settings": [
     {
@@ -313,46 +291,10 @@
     },
     {
       "type": "text",
-      "id": "width",
-      "label": "Width",
-      "default": "100%",
-      "info": "Width of the iframe (e.g., '100%', '800px')"
-    },
-    {
-      "type": "text",
       "id": "height",
       "label": "Height",
-      "default": "400",
+      "default": "600",
       "info": "Height of the iframe (e.g., '400px', '600')"
-    },
-    {
-      "type": "select",
-      "id": "frameborder",
-      "label": "Show Border",
-      "options": [
-        { "value": "0", "label": "No Border" },
-        { "value": "1", "label": "Show Border" }
-      ],
-      "default": "0"
-    },
-    {
-      "type": "checkbox",
-      "id": "allowfullscreen",
-      "label": "Allow Fullscreen",
-      "default": true
-    },
-    {
-      "type": "textarea",
-      "id": "custom_css",
-      "label": "Custom CSS",
-      "info": "Additional CSS styles for the iframe"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_fallback",
-      "label": "Show Fallback Text",
-      "default": false,
-      "info": "Show fallback text if iframe fails to load"
     }
   ]
 }

@@ -1,6 +1,4 @@
-import { useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -10,7 +8,7 @@ import {
   List,
   Link,
 } from "@shopify/polaris";
-import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -89,28 +87,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
-  const fetcher = useFetcher<typeof action>();
-
-  const shopify = useAppBridge();
-
-  const productId = fetcher.data?.product?.id.replace(
-    "gid://shopify/Product/",
-    "",
-  );
-
-  useEffect(() => {
-    if (productId) {
-      shopify.toast.show("Product created");
-    }
-  }, [productId, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
-
   return (
     <Page>
-      <TitleBar title="Remix app template">
-        <button variant="primary" onClick={generateProduct}>
-          Generate a product
-        </button>
+      <TitleBar title="Pencil Shop Embed">
       </TitleBar>
       <BlockStack gap="500">
         <Layout>
@@ -119,10 +98,10 @@ export default function Index() {
               <BlockStack gap="500">
                 <BlockStack gap="200">
                   <Text as="h2" variant="headingMd">
-                    Add the Pencil Designer Embed to your Shopify Store
+                    Add the Pencil Shop Embed to your Shopify Store
                   </Text>
                   <Text variant="bodyMd" as="p">
-                    Follow these steps to add the "Pencil Designer Embed" block to
+                    Follow these steps to add the "Pencil Shop Embed" block to
                     your theme:
                   </Text>
 
@@ -153,7 +132,7 @@ export default function Index() {
                       4. In the left sidebar, click "Add section" or "Add block" (depending on where you want to add it).
                     </List.Item>
                     <List.Item>
-                      5. Search for "Pencil Designer Embed" and click on it to add the block.
+                      5. Search for "Pencil Shop Embed" and click on it to add the block.
                     </List.Item>
                     <List.Item>
                       6. Configure the "Designer URL" with your Pencil Subdomain and the "Height" based on how you want the embed to look.

@@ -85,7 +85,20 @@ export async function action({ request }: ActionFunctionArgs) {
                     descriptionHtml: description || "",
                     vendor: vendor || "",
                     productType: productType || "",
-                    tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : []
+                    tags: [
+                        ...(tags ? tags.split(',').map((tag: string) => tag.trim()) : []),
+                        "pencil-shop-product",
+                        "hidden-from-shop"
+                    ],
+                    metafields: [
+                        {
+                            namespace: "custom",
+                            key: "hidden_from_shop",
+                            value: "true",
+                            type: "boolean"
+                        }
+                    ],
+                    status: "ACTIVE"
                 }
             }
         });
@@ -129,6 +142,8 @@ export async function action({ request }: ActionFunctionArgs) {
                             title
                             price
                             compareAtPrice
+                            availableForSale
+                            inventoryQuantity
                         }
                     }
                 }
@@ -192,6 +207,8 @@ export async function action({ request }: ActionFunctionArgs) {
                             title
                             price
                             compareAtPrice
+                            availableForSale
+                            inventoryQuantity
                         }
                         userErrors {
                             field
@@ -204,7 +221,10 @@ export async function action({ request }: ActionFunctionArgs) {
                     productId: product.id,
                     variants: [{
                         price: price || "0.00",
-                        compareAtPrice: compareAtPrice || null
+                        compareAtPrice: compareAtPrice || null,
+                        inventoryPolicy: "CONTINUE",
+                        inventoryManagement: "SHOPIFY",
+                        inventoryQuantity: 999
                     }]
                 }
             });
@@ -213,7 +233,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
             // Check for variant creation errors
             if (variantData.errors) {
-                console.error('Variant GraphQL errors:', variantData.errors);
+                console.error('❌ Variant GraphQL errors:', variantData.errors);
                 return new Response(JSON.stringify({
                     error: "Variant creation failed",
                     details: variantData.errors
@@ -224,7 +244,7 @@ export async function action({ request }: ActionFunctionArgs) {
             }
 
             if (variantData.data.productVariantsBulkCreate.userErrors.length > 0) {
-                console.error('Variant user errors:', variantData.data.productVariantsBulkCreate.userErrors);
+                console.error('❌ Variant user errors:', variantData.data.productVariantsBulkCreate.userErrors);
                 return new Response(JSON.stringify({
                     error: "Variant creation failed",
                     details: variantData.data.productVariantsBulkCreate.userErrors
@@ -236,7 +256,99 @@ export async function action({ request }: ActionFunctionArgs) {
 
             variant = variantData.data.productVariantsBulkCreate.productVariants[0];
             console.log('✅ Variant created:', variant.id, '- Price:', variant.price);
+
         }
+
+        // First, get the Online Store publication ID
+        console.log('📢 Getting Online Store publication...');
+        const publicationsResponse = await admin.graphql(`
+        query getPublications {
+            publications(first: 10) {
+                nodes {
+                    id
+                    name
+                    supportsFuturePublishing
+                }
+            }
+        }
+    `);
+
+        const publicationsData = await publicationsResponse.json() as any;
+        console.log('📊 Available publications:', JSON.stringify(publicationsData, null, 2));
+
+        // Find the Online Store publication (usually named "Online Store")
+        const onlineStorePublication = publicationsData.data.publications.nodes.find(
+            (pub: any) => pub.name === "Online Store" || pub.name === "online store"
+        );
+
+        if (!onlineStorePublication) {
+            console.error('❌ Online Store publication not found');
+            return new Response(JSON.stringify({
+                error: "Online Store publication not found",
+                details: "Cannot publish product - Online Store channel not available"
+            }), {
+                status: 400,
+                headers: { "content-type": "application/json" },
+            });
+        }
+
+        console.log('📢 Publishing product to Online Store publication:', onlineStorePublication.id);
+        const publishResponse = await admin.graphql(`
+        mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+                publishable {
+                    availablePublicationsCount {
+                        count
+                    }
+                    resourcePublicationsCount {
+                        count
+                    }
+                }
+                shop {
+                    publicationCount
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+    `, {
+            variables: {
+                id: product.id,
+                input: [{ publicationId: onlineStorePublication.id }]
+            }
+        });
+
+        const publishData = await publishResponse.json() as any;
+
+        if (publishData.errors) {
+            console.error('❌ Publish GraphQL errors:', publishData.errors);
+            return new Response(JSON.stringify({
+                error: "Product created but failed to publish",
+                details: publishData.errors
+            }), {
+                status: 500,
+                headers: { "content-type": "application/json" },
+            });
+        }
+
+        if (publishData.data.publishablePublish.userErrors.length > 0) {
+            console.error('❌ Publish user errors:', publishData.data.publishablePublish.userErrors);
+            return new Response(JSON.stringify({
+                error: "Product created but not published to Online Store",
+                details: publishData.data.publishablePublish.userErrors,
+                productId: product.id,
+                variantId: variant.id,
+                handle: product.handle
+            }), {
+                status: 400,
+                headers: { "content-type": "application/json" },
+            });
+        }
+
+        console.log('✅ Product published to Online Store successfully!');
+
 
         // Save to database
         try {
@@ -247,7 +359,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 productName: productTitle,
                 price: price || "0.00",
                 currency: currency || "USD",
-                source: source || "iframe",
+                source: source || "pencil-shop",
                 designerUrl: "", // Can be populated if available
                 shopifyProductGid: product.id,
                 shopifyVariantGid: variant.id
@@ -276,7 +388,7 @@ export async function action({ request }: ActionFunctionArgs) {
         }
 
         // Return success response with created product
-        return new Response(JSON.stringify({
+        const responseData = {
             success: true,
             product: {
                 ...product,
@@ -286,15 +398,19 @@ export async function action({ request }: ActionFunctionArgs) {
             },
             productId: product.id,
             handle: product.handle,
-            variantId: variant.id,
+            variantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
             modelId: modelId || `model-${Date.now()}`,
             metadata: {
-                source: source || "iframe",
+                source: source || "pencil-shop",
                 currency: currency || "USD",
                 price: price || "0.00",
                 createdAt: new Date().toISOString()
             }
-        }), {
+        };
+
+        console.log('🆔 Returning variant ID:', responseData.variantId, 'from full GID:', variant.id);
+
+        return new Response(JSON.stringify(responseData), {
             status: 201,
             headers: { "content-type": "application/json" },
         });
