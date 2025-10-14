@@ -33,6 +33,7 @@ model Session {
 
 model Model {
   id                Int      @id @default(autoincrement())
+  shop              String
   modelId           String   @unique @map("model_id")
   productId         String   @map("product_id")
   variantId         String   @map("variant_id")
@@ -46,5 +47,6 @@ model Model {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
+  @@index([shop])
   @@map("models")
 }

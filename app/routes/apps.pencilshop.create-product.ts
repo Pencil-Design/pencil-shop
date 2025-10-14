@@ -4,7 +4,7 @@ import prisma from "../db.server";
 
 export async function action({ request }: ActionFunctionArgs) {
     try {
-        console.log('POST /apps/pencilshop2/create-product - starting action');
+        console.log('POST /apps/pencilshop/create-product - starting action');
 
         // This is an app proxy request, use authenticate.public.appProxy
         const context = await authenticate.public.appProxy(request);
@@ -21,6 +21,10 @@ export async function action({ request }: ActionFunctionArgs) {
         }
 
         const admin = context.admin;
+
+        // Extract shop domain from the request URL (app proxy includes shop parameter)
+        const url = new URL(request.url);
+        const shop = url.searchParams.get('shop') || 'unknown';
 
         // Parse the request body to get product data
         const body = await request.json();
@@ -361,6 +365,7 @@ export async function action({ request }: ActionFunctionArgs) {
         // Save to database
         try {
             const modelData = {
+                shop: shop,
                 modelId: modelId || `model-${Date.now()}`,
                 productId: product.id.replace('gid://shopify/Product/', ''),
                 variantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
@@ -376,6 +381,7 @@ export async function action({ request }: ActionFunctionArgs) {
             await prisma.model.upsert({
                 where: { modelId: modelData.modelId },
                 update: {
+                    shop: modelData.shop,
                     productId: modelData.productId,
                     variantId: modelData.variantId,
                     productName: modelData.productName,
