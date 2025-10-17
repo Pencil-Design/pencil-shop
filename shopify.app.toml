@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "6310a1cb5fb54d109bdeb43bdd1d8e95"
-name = "pencil-shop-2"
-application_url = "https://pencil-shop-2.fly.dev"
+client_id = "168e3fcb8081159166a95d3fe1509f56"
+name = "pencil-shop-miami"
+application_url = "https://pencil-shop-miami.fly.dev"
 embedded = true
 
 [build]
@@ -25,12 +25,12 @@ scopes = "read_inventory,read_products,read_publications,write_app_proxy,write_f
 
 [auth]
 redirect_urls = [
-  "https://pencil-shop-2.fly.dev/auth/callback",
-  "https://pencil-shop-2.fly.dev/auth/shopify/callback",
-  "https://pencil-shop-2.fly.dev/api/auth/callback"
+  "https://pencil-shop-miami.fly.dev/auth/callback",
+  "https://pencil-shop-miami.fly.dev/auth/shopify/callback",
+  "https://pencil-shop-miami.fly.dev/api/auth/callback"
 ]
 
 [app_proxy]
-url = "https://pencil-shop-2.fly.dev/apps/pencilshop2"
-subpath = "pencilshop2"
+url = "https://pencil-shop-miami.fly.dev/apps/pencilshopmiami"
+subpath = "pencilshopmiami"
 prefix = "apps"

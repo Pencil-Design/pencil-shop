@@ -1,5 +1,5 @@
 {
-  "name": "pencil-shop-2",
+  "name": "pencil-shop-miami",
   "private": true,
   "scripts": {
     "build": "remix vite:build",
@@ -23,6 +23,7 @@
     "node": "^18.20 || ^20.10 || >=21.0.0"
   },
   "dependencies": {
+    "@flydotio/litestream": "^1.0.1",
     "@prisma/client": "^6.2.1",
     "@remix-run/dev": "^2.16.1",
     "@remix-run/fs-routes": "^2.16.1",
@@ -75,5 +76,8 @@
     "minimatch": "9.0.5",
     "vite": "^6.2.2"
   },
-  "author": "juliannelefelhocz"
+  "author": "juliannelefelhocz",
+  "dockerfile": {
+    "litestream": true
+  }
 }

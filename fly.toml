@@ -1,19 +1,19 @@
-# fly.toml app configuration file generated for pencil-shop-2 on 2025-10-06T13:51:34-04:00
+# fly.toml app configuration file generated for pencil-shop-miami on 2025-10-15T16:13:22-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'pencil-shop-2'
-primary_region = 'ewr'
+app = 'pencil-shop-miami'
+primary_region = 'ams'
 
 [build]
 
 [env]
+  DATABASE_URL = 'file:/data/production.sqlite'
   PORT = '3000'
   SCOPES = 'read_inventory,read_products,read_publications,write_inventory,write_product_listings,write_products,write_publications'
-  SHOPIFY_API_KEY = '6310a1cb5fb54d109bdeb43bdd1d8e95'
-  SHOPIFY_APP_URL = 'https://pencil-shop-2.fly.dev'
-  DATABASE_URL = 'file:/data/production.sqlite'
+  SHOPIFY_API_KEY = '168e3fcb8081159166a95d3fe1509f56'
+  SHOPIFY_APP_URL = 'https://pencil-shop-miami.fly.dev'
 
 [processes]
   app = 'node ./dbsetup.js npm run docker-start'
