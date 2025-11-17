@@ -1,5 +1,5 @@
 {
-  "name": "pencil-shop-2",
+  "name": "pencil-shop-eclat",
   "private": true,
   "scripts": {
     "build": "remix vite:build",

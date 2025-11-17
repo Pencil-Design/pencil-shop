@@ -4,7 +4,7 @@ import prisma from "../db.server";
 
 export async function action({ request }: ActionFunctionArgs) {
     try {
-        console.log('POST /apps/pencilshop2/create-product - starting action');
+        console.log('POST /apps/pencilshopeclat/create-product - starting action');
 
         // This is an app proxy request, use authenticate.public.appProxy
         const context = await authenticate.public.appProxy(request);
