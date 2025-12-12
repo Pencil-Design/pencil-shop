@@ -24,7 +24,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         // Parse the request body to get product data
         const body = await request.json();
-        const { productName, title, description, vendor, price, compareAtPrice, productType, tags, modelId, currency, source } = body;
+        const { productName, title, description, vendor, price, compareAtPrice, productType, tags, modelId, currency, source, imageUrl } = body;
 
         // Use productName as the primary title, fallback to title
         const productTitle = productName || title;
@@ -34,6 +34,8 @@ export async function action({ request }: ActionFunctionArgs) {
             productName,
             title,
             productTitle,
+            description,
+            imageUrl,
             price,
             currency,
             modelId,
@@ -56,7 +58,36 @@ export async function action({ request }: ActionFunctionArgs) {
             .replace(/^-+|-+$/g, '');
         const uniqueHandle = `${baseHandle}-${Date.now()}`;
 
-        // Create the product using GraphQL mutation
+        // Build the product input object
+        const productInput: any = {
+            title: productTitle,
+            handle: uniqueHandle,
+            descriptionHtml: description || "",
+            vendor: vendor || "",
+            productType: productType || "",
+            tags: [
+                ...(tags ? tags.split(',').map((tag: string) => tag.trim()) : []),
+                "pencil-shop-product",
+                "hidden-from-shop"
+            ],
+            metafields: [
+                {
+                    namespace: "seo",
+                    key: "hidden",
+                    value: "true",
+                    type: "boolean"
+                },
+                {
+                    namespace: "custom",
+                    key: "hidden_from_shop",
+                    value: "true",
+                    type: "boolean"
+                }
+            ],
+            status: "ACTIVE"
+        };
+
+        // Create the product using GraphQL mutation (without media - added separately)
         const productResponse = await admin.graphql(`
             mutation productCreate($product: ProductCreateInput!) {
                 productCreate(product: $product) {
@@ -79,33 +110,7 @@ export async function action({ request }: ActionFunctionArgs) {
             }
         `, {
             variables: {
-                product: {
-                    title: productTitle,
-                    handle: uniqueHandle,
-                    descriptionHtml: description || "",
-                    vendor: vendor || "",
-                    productType: productType || "",
-                    tags: [
-                        ...(tags ? tags.split(',').map((tag: string) => tag.trim()) : []),
-                        "pencil-shop-product",
-                        "hidden-from-shop"
-                    ],
-                    metafields: [
-                        {
-                            namespace: "seo",
-                            key: "hidden",
-                            value: "true",
-                            type: "boolean"
-                        },
-                        {
-                            namespace: "custom",
-                            key: "hidden_from_shop",
-                            value: "true",
-                            type: "boolean"
-                        }
-                    ],
-                    status: "ACTIVE"
-                }
+                product: productInput
             }
         });
 
@@ -137,6 +142,58 @@ export async function action({ request }: ActionFunctionArgs) {
 
         const product = productData.data.productCreate.product;
         console.log('✅ Product created:', product.id, '-', product.title);
+
+        // Add product image if imageUrl is provided (using separate mutation)
+        if (imageUrl) {
+            console.log('🖼️ Adding product image from URL:', imageUrl);
+            try {
+                const mediaResponse = await admin.graphql(`
+                    mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+                        productCreateMedia(productId: $productId, media: $media) {
+                            media {
+                                ... on MediaImage {
+                                    id
+                                    image {
+                                        url
+                                    }
+                                }
+                            }
+                            mediaUserErrors {
+                                field
+                                message
+                            }
+                            product {
+                                id
+                            }
+                        }
+                    }
+                `, {
+                    variables: {
+                        productId: product.id,
+                        media: [
+                            {
+                                originalSource: imageUrl,
+                                mediaContentType: "IMAGE",
+                                alt: productTitle
+                            }
+                        ]
+                    }
+                });
+
+                const mediaData = await mediaResponse.json() as any;
+
+                if (mediaData.errors) {
+                    console.error('❌ Media GraphQL errors:', mediaData.errors);
+                } else if (mediaData.data.productCreateMedia.mediaUserErrors.length > 0) {
+                    console.error('❌ Media user errors:', mediaData.data.productCreateMedia.mediaUserErrors);
+                } else {
+                    console.log('✅ Product image added successfully');
+                }
+            } catch (mediaError) {
+                console.error('❌ Error adding product image:', mediaError);
+                // Don't fail the entire request if image upload fails
+            }
+        }
 
         // Check if product already has variants
         const existingVariantsResponse = await admin.graphql(`

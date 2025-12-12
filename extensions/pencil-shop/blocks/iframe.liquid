@@ -83,6 +83,8 @@
         const inferredModelId = designData && designData.modelId ? String(designData.modelId) : undefined;
         const inferredPrice = designData && designData.price != null ? String(designData.price) : '9.99';
         const inferredSku = inferredModelId || 'SKU-' + Date.now(); // prefer modelId for sku
+        const inferredDescription = designData && designData.description ? String(designData.description) : '';
+        const inferredImageUrl = designData && designData.imageUrl ? String(designData.imageUrl) : '';
 
         if (!inferredModelId) {
           if (loadingOverlay) {
@@ -105,6 +107,8 @@
                 sku: inferredSku,
                 currency: inferredCurrency,
                 modelId: inferredModelId,
+                description: inferredDescription,
+                imageUrl: inferredImageUrl,
                 source: 'iframe',
               }),
             });
@@ -158,12 +162,23 @@
             }
 
             if (variantId) {
-              // Try to add to cart
+              // Try to add to cart with line item properties
               const numericId = parseInt(variantId);
+              const cartItem = {
+                id: numericId,
+                quantity: 1,
+                properties: {}
+              };
+
+              // Add properties only if they have values
+              if (inferredDescription) {
+                cartItem.properties['Design Description'] = inferredDescription;
+              }
+
               const cartRes = await fetch('/cart/add.js', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ items: [{ id: numericId, quantity: 1 }] }),
+                body: JSON.stringify({ items: [cartItem] }),
               });
 
               const cartBody = await cartRes.text();
@@ -241,8 +256,8 @@
         // Capture structured payload for product creation if present
         if (event.data && typeof event.data === 'object') {
           const d = event.data;
-          // Expecting fields: productName, currency, modelId, price (optional)
-          if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d) {
+          // Expecting fields: productName, currency, modelId, price, description, imageUrl (all optional except modelId)
+          if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d || 'description' in d || 'imageUrl' in d) {
             latestDesignData = d;
             // Auto-create immediately on message - allow multiple messages
             if (d.modelId) {
