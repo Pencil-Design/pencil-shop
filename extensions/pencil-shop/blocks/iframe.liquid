@@ -172,7 +172,7 @@
 
               // Add properties only if they have values
               if (inferredDescription) {
-                cartItem.properties['Design Description'] = inferredDescription;
+                cartItem.properties['Description'] = inferredDescription;
               }
 
               const cartRes = await fetch('/cart/add.js', {
