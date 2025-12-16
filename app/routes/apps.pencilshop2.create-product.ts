@@ -143,10 +143,103 @@ export async function action({ request }: ActionFunctionArgs) {
         const product = productData.data.productCreate.product;
         console.log('✅ Product created:', product.id, '-', product.title);
 
-        // Add product image if imageUrl is provided (using separate mutation)
+        // Add product image if imageUrl is provided (using staged upload for external URLs)
         if (imageUrl) {
             console.log('🖼️ Adding product image from URL:', imageUrl);
             try {
+                // Step 1: Download the image from external URL
+                console.log('📥 Downloading image from external URL...');
+                const imageResponse = await fetch(imageUrl);
+                if (!imageResponse.ok) {
+                    throw new Error(`Failed to download image: ${imageResponse.status} ${imageResponse.statusText}`);
+                }
+                
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const imageBytes = new Uint8Array(imageBuffer);
+                console.log('📥 Downloaded image, size:', imageBytes.length, 'bytes');
+                
+                // Determine file extension and MIME type from URL
+                const urlPath = imageUrl.split('?')[0]; // Remove query params
+                const extension = urlPath.split('.').pop()?.toLowerCase() || 'png';
+                const mimeTypes: Record<string, string> = {
+                    'png': 'image/png',
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'gif': 'image/gif',
+                    'webp': 'image/webp'
+                };
+                const mimeType = mimeTypes[extension] || 'image/png';
+                const filename = `product-image-${Date.now()}.${extension}`;
+                
+                // Step 2: Create staged upload
+                console.log('📤 Creating staged upload...');
+                const stagedUploadResponse = await admin.graphql(`
+                    mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+                        stagedUploadsCreate(input: $input) {
+                            stagedTargets {
+                                url
+                                resourceUrl
+                                parameters {
+                                    name
+                                    value
+                                }
+                            }
+                            userErrors {
+                                field
+                                message
+                            }
+                        }
+                    }
+                `, {
+                    variables: {
+                        input: [{
+                            resource: "PRODUCT_IMAGE",
+                            filename: filename,
+                            mimeType: mimeType,
+                            fileSize: String(imageBytes.length),
+                            httpMethod: "POST"
+                        }]
+                    }
+                });
+                
+                const stagedUploadData = await stagedUploadResponse.json() as any;
+                
+                if (stagedUploadData.errors || stagedUploadData.data.stagedUploadsCreate.userErrors.length > 0) {
+                    console.error('❌ Staged upload errors:', stagedUploadData.errors || stagedUploadData.data.stagedUploadsCreate.userErrors);
+                    throw new Error('Failed to create staged upload');
+                }
+                
+                const stagedTarget = stagedUploadData.data.stagedUploadsCreate.stagedTargets[0];
+                console.log('📤 Staged upload URL:', stagedTarget.url);
+                console.log('📤 Resource URL:', stagedTarget.resourceUrl);
+                
+                // Step 3: Upload the file to the staged URL
+                const formData = new FormData();
+                
+                // Add all the parameters from the staged upload
+                for (const param of stagedTarget.parameters) {
+                    formData.append(param.name, param.value);
+                }
+                
+                // Add the file last
+                const blob = new Blob([imageBytes], { type: mimeType });
+                formData.append('file', blob, filename);
+                
+                console.log('📤 Uploading to staged URL...');
+                const uploadResponse = await fetch(stagedTarget.url, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    const uploadError = await uploadResponse.text();
+                    console.error('❌ Upload failed:', uploadError);
+                    throw new Error(`Failed to upload to staged URL: ${uploadResponse.status}`);
+                }
+                console.log('📤 Upload successful!');
+                
+                // Step 4: Create the product media using the resourceUrl
+                console.log('🖼️ Creating product media...');
                 const mediaResponse = await admin.graphql(`
                     mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
                         productCreateMedia(productId: $productId, media: $media) {
@@ -172,7 +265,7 @@ export async function action({ request }: ActionFunctionArgs) {
                         productId: product.id,
                         media: [
                             {
-                                originalSource: imageUrl,
+                                originalSource: stagedTarget.resourceUrl,
                                 mediaContentType: "IMAGE",
                                 alt: productTitle
                             }
@@ -187,7 +280,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 } else if (mediaData.data.productCreateMedia.mediaUserErrors.length > 0) {
                     console.error('❌ Media user errors:', mediaData.data.productCreateMedia.mediaUserErrors);
                 } else {
-                    console.log('✅ Product image added successfully');
+                    console.log('✅ Product image added successfully via staged upload');
                 }
             } catch (mediaError) {
                 console.error('❌ Error adding product image:', mediaError);
