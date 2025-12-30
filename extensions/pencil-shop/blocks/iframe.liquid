@@ -91,32 +91,32 @@
           alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
           return;
         }
-        // Try multiple proxy paths to support different subpaths between local/dev
-        const endpoints = ['/apps/pencilshop/create-product'];
+        const apiBase = 'https://f107b08e1925.ngrok-free.app';
+        const endpoint = `${apiBase}/shopify/products`;
         let res = null;
-        for (const endpoint of endpoints) {
-          try {
-            const attempt = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: inferredTitle,
-                price: inferredPrice,
-                sku: inferredSku,
-                currency: inferredCurrency,
-                modelId: inferredModelId,
-                source: 'iframe',
-              }),
-            });
-            console.log('Proxy attempt', endpoint, '-> status', attempt.status);
-            if (attempt.status !== 404) {
-              res = attempt;
-              break;
-            }
-          } catch (e) {
-            // continue to next endpoint
-            console.warn('Proxy attempt failed', endpoint, e);
+        console.log('Shopify.shop', Shopify.shop);
+        console.log('Request body will include shopDomain:', Shopify.shop);
+        try {
+          const attempt = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productName: inferredTitle,
+              title: inferredTitle,
+              price: inferredPrice,
+              modelId: inferredModelId,
+              currency: inferredCurrency,
+              source: 'pencil-shop-iframe',
+              shopDomain: Shopify.shop,
+            }),
+          });
+          console.log('Proxy attempt', endpoint, '-> status', attempt.status);
+          if (attempt.ok || attempt.status !== 404) {
+            res = attempt;
           }
+        } catch (e) {
+          // continue to next endpoint
+          console.warn('Proxy attempt failed', endpoint, e);
         }
 
         if (!res) {

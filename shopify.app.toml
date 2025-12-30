@@ -2,34 +2,11 @@
 
 client_id = "f97fd26af6baf728a1f09a8f5de379b3"
 name = "pencil-shop"
-application_url = "https://pencil-shop.fly.dev"
-embedded = true
+application_url = "https://dev-api.pencildesign.co"
+embedded = false
 
 [build]
 automatically_update_urls_on_dev = true
-
-[webhooks]
-api_version = "2026-01"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
-
-  [[webhooks.subscriptions]]
-  compliance_topics = [ "customers/data_request" ]
-  uri = "/webhooks/customers/data_request"
-
-  [[webhooks.subscriptions]]
-  compliance_topics = [ "customers/redact" ]
-  uri = "/webhooks/customers/redact"
-
-  [[webhooks.subscriptions]]
-  compliance_topics = [ "shop/redact" ]
-  uri = "/webhooks/shop/redact"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
@@ -37,12 +14,12 @@ scopes = "read_inventory,read_products,read_publications,write_app_proxy,write_f
 
 [auth]
 redirect_urls = [
-  "https://pencil-shop.fly.dev/auth/callback",
-  "https://pencil-shop.fly.dev/auth/shopify/callback",
-  "https://pencil-shop.fly.dev/api/auth/callback"
+  "https://dev-api.pencildesign.co/shopify/callback"
 ]
 
-[app_proxy]
-url = "https://pencil-shop.fly.dev/apps/pencilshop"
-subpath = "pencilshop"
-prefix = "apps"
+[webhooks]
+api_version = "2024-10"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
