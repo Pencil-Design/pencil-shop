@@ -175,13 +175,36 @@
                 cartItem.properties['Description'] = inferredDescription;
               }
 
-              const cartRes = await fetch('/cart/add.js', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ items: [cartItem] }),
-              });
+              // Newly created products need time to propagate to Shopify's
+              // Storefront cart system. Wait before the first attempt.
+              const initialDelay = 5000;
+              console.log('Waiting ' + initialDelay + 'ms for Shopify to index new product...');
+              await new Promise(function (resolve) { setTimeout(resolve, initialDelay); });
 
-              const cartBody = await cartRes.text();
+              const maxRetries = 5;
+              const retryDelay = 3000;
+              let cartRes = null;
+              let cartBody = '';
+
+              for (let attempt = 0; attempt < maxRetries; attempt++) {
+                cartRes = await fetch('/cart/add.js', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ items: [cartItem] }),
+                });
+
+                cartBody = await cartRes.text();
+
+                if (cartRes.ok) break;
+
+                // Only retry on 422 (sold out / not available yet), not other errors
+                if (cartRes.status === 422 && attempt < maxRetries - 1) {
+                  console.warn('Cart add attempt ' + (attempt + 1) + ' failed with 422, retrying in ' + retryDelay + 'ms...');
+                  await new Promise(function (resolve) { setTimeout(resolve, retryDelay); });
+                } else {
+                  break;
+                }
+              }
 
               if (cartRes.ok) {
                 // Hide loading overlay and redirect to cart
