@@ -93,7 +93,7 @@
           alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
           return;
         }
-        const apiBase = 'https://dev-api.pencildesign.co';
+        const apiBase = 'https://api.pencildesign.co';
         const endpoint = `${apiBase}/shopify/products`;
         let res = null;
         console.log('Shopify.shop', Shopify.shop);
@@ -167,7 +167,7 @@
               const cartItem = {
                 id: numericId,
                 quantity: 1,
-                properties: {}
+                properties: {},
               };
 
               // Add properties only if they have values
@@ -175,13 +175,42 @@
                 cartItem.properties['Description'] = inferredDescription;
               }
 
-              const cartRes = await fetch('/cart/add.js', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ items: [cartItem] }),
+              // Newly created products need time to propagate to Shopify's
+              // Storefront cart system. Wait before the first attempt.
+              const initialDelay = 5000;
+              console.log('Waiting ' + initialDelay + 'ms for Shopify to index new product...');
+              await new Promise(function (resolve) {
+                setTimeout(resolve, initialDelay);
               });
 
-              const cartBody = await cartRes.text();
+              const maxRetries = 5;
+              const retryDelay = 3000;
+              let cartRes = null;
+              let cartBody = '';
+
+              for (let attempt = 0; attempt < maxRetries; attempt++) {
+                cartRes = await fetch('/cart/add.js', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ items: [cartItem] }),
+                });
+
+                cartBody = await cartRes.text();
+
+                if (cartRes.ok) break;
+
+                // Only retry on 422 (sold out / not available yet), not other errors
+                if (cartRes.status === 422 && attempt < maxRetries - 1) {
+                  console.warn(
+                    'Cart add attempt ' + (attempt + 1) + ' failed with 422, retrying in ' + retryDelay + 'ms...'
+                  );
+                  await new Promise(function (resolve) {
+                    setTimeout(resolve, retryDelay);
+                  });
+                } else {
+                  break;
+                }
+              }
 
               if (cartRes.ok) {
                 // Hide loading overlay and redirect to cart
@@ -246,18 +275,20 @@
         }
 
         // Log all other messages from iframes
-        console.log('Message received from iframe TEST 2:', {
-          origin: event.origin,
-          data: event.data,
-          source: event.source,
-          timestamp: new Date().toISOString(),
-        });
+        console.log('Message received from iframe');
 
         // Capture structured payload for product creation if present
         if (event.data && typeof event.data === 'object') {
           const d = event.data;
           // Expecting fields: productName, currency, modelId, price, description, imageUrl (all optional except modelId)
-          if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d || 'description' in d || 'imageUrl' in d) {
+          if (
+            'modelId' in d ||
+            'productName' in d ||
+            'currency' in d ||
+            'price' in d ||
+            'description' in d ||
+            'imageUrl' in d
+          ) {
             latestDesignData = d;
             // Auto-create immediately on message - allow multiple messages
             if (d.modelId) {

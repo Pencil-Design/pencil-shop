@@ -2,7 +2,7 @@
 
 client_id = "f97fd26af6baf728a1f09a8f5de379b3"
 name = "pencil-shop"
-application_url = "https://dev-api.pencildesign.co"
+application_url = "https://api.pencildesign.co"
 embedded = false
 
 [build]
@@ -13,7 +13,7 @@ scopes = "read_inventory,read_products,read_publications,write_app_proxy,write_f
 
 [auth]
 redirect_urls = [
-  "https://dev-api.pencildesign.co/shopify/callback"
+  "https://api.pencildesign.co/shopify/callback"
 ]
 
 [webhooks]
