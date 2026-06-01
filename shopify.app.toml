@@ -10,6 +10,7 @@ automatically_update_urls_on_dev = true
 
 [access_scopes]
 scopes = "read_inventory,read_products,read_publications,write_app_proxy,write_files,write_inventory,write_product_listings,write_products,write_publications"
+use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
@@ -17,7 +18,7 @@ redirect_urls = [
 ]
 
 [webhooks]
-api_version = "2024-10"
+api_version = "2026-07"
 
 # App lifecycle webhook
 [[webhooks.subscriptions]]
