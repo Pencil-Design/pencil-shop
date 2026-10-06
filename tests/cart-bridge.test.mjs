@@ -26,7 +26,7 @@ function harness({ response = product, productWait, cartStatuses = [200] } = {})
       requests.push({ url, body: JSON.parse(options.body) });
       if (url.endsWith('/shopify/products')) {
         if (productWait) await productWait;
-        return { ok: true, status: 201, headers: { get: () => 'application/json' }, json: async () => response };
+        return { ok: true, status: 201, headers: { get: () => 'application/json' }, json: async () => typeof response === 'function' ? response(JSON.parse(options.body)) : response };
       }
       const status = cartStatuses[Math.min(cartAttempt++, cartStatuses.length - 1)];
       return { ok: status === 200, status, text: async () => '{}' };
@@ -90,4 +90,44 @@ test('retains properties across storefront propagation retries', async () => {
   assert.equal(h.requests.length, 3);
   assert.deepEqual(h.requests[1].body, h.requests[2].body);
   assert.equal(h.window.location.href, '/cart');
+});
+
+test('keeps different saved configurations separate', async () => {
+  const h = harness({ response: request => ({
+    ...product, modelId: request.modelId, orderId: request.orderId, sku: request.modelId,
+    cartProperties: { ...properties, 'Pencil Design ID': request.modelId, 'Pencil Order ID': request.orderId },
+  }) });
+  await h.send();
+  await h.send({ ...design, modelId: 'snapshot-2', orderId: 'order-2' });
+  const carts = h.requests.filter(request => request.url.endsWith('/cart/add.js'));
+  assert.equal(carts.length, 2);
+  assert.equal(carts[0].body.items[0].properties['Pencil Design ID'], 'snapshot');
+  assert.equal(carts[1].body.items[0].properties['Pencil Design ID'], 'snapshot-2');
+  assert.equal(carts[1].body.items[0].properties['Pencil Order ID'], 'order-2');
+});
+
+test('does not add mismatched or non-string cart properties', async () => {
+  for (const cartProperties of [{ ...properties, 'Pencil Order ID': 'other' }, { ...properties, 'Ring Size': 7 }]) {
+    const h = harness({ response: { ...product, cartProperties } });
+    await h.send();
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.alerts.length, 1);
+  }
+});
+
+test('stops after exhausted availability retries and allows another attempt', async () => {
+  const h = harness({ cartStatuses: [422] });
+  await h.send();
+  assert.equal(h.requests.length, 6);
+  assert.equal(h.alerts.length, 1);
+  assert.equal(h.overlay.style.display, 'none');
+  await h.send();
+  assert.equal(h.requests.length, 12);
+});
+
+test('does not automatically retry other cart errors', async () => {
+  const h = harness({ cartStatuses: [500] });
+  await h.send();
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.alerts.length, 1);
 });
