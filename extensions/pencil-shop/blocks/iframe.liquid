@@ -67,7 +67,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const iframe = document.getElementById('iframe-{{ block.id }}');
-    let latestDesignData = null; // holds last message payload from iframe
+    const inFlightOrders = new Set();
 
     async function createProductFromIframeData(designData) {
       const loadingOverlay = document.getElementById('loading-overlay-{{ block.id }}');
@@ -82,45 +82,46 @@
         const inferredCurrency = designData && designData.currency ? String(designData.currency) : 'USD';
         const inferredModelId = designData && designData.modelId ? String(designData.modelId) : undefined;
         const inferredPrice = designData && designData.price != null ? String(designData.price) : '9.99';
-        const inferredSku = inferredModelId || 'SKU-' + Date.now(); // prefer modelId for sku
+        const inferredOrderId = typeof designData.orderId === 'string' ? designData.orderId.trim() : '';
         const inferredDescription = designData && designData.description ? String(designData.description) : '';
         const inferredImageUrl = designData && designData.imageUrl ? String(designData.imageUrl) : '';
 
-        if (!inferredModelId) {
+        if (!inferredModelId || !inferredOrderId) {
           if (loadingOverlay) {
             loadingOverlay.style.display = 'none';
           }
-          alert('Missing modelId from iframe. Please ensure the iframe posts modelId.');
+          alert('The saved design details are incomplete. Please try adding the item again.');
           return;
         }
-        // Try multiple proxy paths to support different subpaths between local/dev
-        const endpoints = ['/apps/pencilshop2/create-product'];
+        const apiBase = 'https://api.pencildesign.co';
+        const endpoint = `${apiBase}/shopify/products`;
         let res = null;
-        for (const endpoint of endpoints) {
-          try {
-            const attempt = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: inferredTitle,
-                price: inferredPrice,
-                sku: inferredSku,
-                currency: inferredCurrency,
-                modelId: inferredModelId,
-                description: inferredDescription,
-                imageUrl: inferredImageUrl,
-                source: 'iframe',
-              }),
-            });
-            console.log('Proxy attempt', endpoint, '-> status', attempt.status);
-            if (attempt.status !== 404) {
-              res = attempt;
-              break;
-            }
-          } catch (e) {
-            // continue to next endpoint
-            console.warn('Proxy attempt failed', endpoint, e);
+        console.log('Shopify.shop', Shopify.shop);
+        console.log('Request body will include shopDomain:', Shopify.shop);
+        try {
+          const attempt = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productName: inferredTitle,
+              title: inferredTitle,
+              price: inferredPrice,
+              modelId: inferredModelId,
+              orderId: inferredOrderId,
+              currency: inferredCurrency,
+              source: 'pencil-shop-iframe',
+              shopDomain: Shopify.shop,
+              description: inferredDescription,
+              imageUrl: inferredImageUrl,
+            }),
+          });
+          console.log('Proxy attempt', endpoint, '-> status', attempt.status);
+          if (attempt.ok || attempt.status !== 404) {
+            res = attempt;
           }
+        } catch (e) {
+          // continue to next endpoint
+          console.warn('Proxy attempt failed', endpoint, e);
         }
 
         if (!res) {
@@ -135,11 +136,21 @@
         const payload = contentType.includes('application/json') ? await res.json() : await res.text();
         if (!res.ok) {
           console.error('Create failed:', payload);
-          const message = typeof payload === 'string' ? payload : (payload && payload.error) || 'Unknown error';
+          const message = typeof payload === 'string' ? payload : (payload && (payload.message || payload.error)) || 'Unknown error';
           if (loadingOverlay) {
             loadingOverlay.style.display = 'none';
           }
           alert('Error creating product: ' + message);
+          return;
+        }
+
+        const properties = payload && payload.cartProperties;
+        if (!payload || payload.success !== true || payload.modelId !== inferredModelId ||
+            payload.orderId !== inferredOrderId || payload.sku !== inferredModelId ||
+            !properties || typeof properties !== 'object' || Array.isArray(properties) ||
+            properties['Pencil Design ID'] !== inferredModelId || properties['Pencil Order ID'] !== inferredOrderId ||
+            Object.values(properties).some(value => typeof value !== 'string')) {
+          alert('The saved design details are incomplete. Please try adding the item again.');
           return;
         }
 
@@ -163,11 +174,12 @@
 
             if (variantId) {
               // Try to add to cart with line item properties
-              const numericId = parseInt(variantId);
+              const numericId = Number(variantId);
+              if (!Number.isSafeInteger(numericId) || numericId <= 0) throw new Error('Invalid cart item. Please retry.');
               const cartItem = {
                 id: numericId,
                 quantity: 1,
-                properties: {}
+                properties: { ...properties },
               };
 
               // Add properties only if they have values
@@ -179,7 +191,9 @@
               // Storefront cart system. Wait before the first attempt.
               const initialDelay = 5000;
               console.log('Waiting ' + initialDelay + 'ms for Shopify to index new product...');
-              await new Promise(function (resolve) { setTimeout(resolve, initialDelay); });
+              await new Promise(function (resolve) {
+                setTimeout(resolve, initialDelay);
+              });
 
               const maxRetries = 5;
               const retryDelay = 3000;
@@ -199,8 +213,12 @@
 
                 // Only retry on 422 (sold out / not available yet), not other errors
                 if (cartRes.status === 422 && attempt < maxRetries - 1) {
-                  console.warn('Cart add attempt ' + (attempt + 1) + ' failed with 422, retrying in ' + retryDelay + 'ms...');
-                  await new Promise(function (resolve) { setTimeout(resolve, retryDelay); });
+                  console.warn(
+                    'Cart add attempt ' + (attempt + 1) + ' failed with 422, retrying in ' + retryDelay + 'ms...'
+                  );
+                  await new Promise(function (resolve) {
+                    setTimeout(resolve, retryDelay);
+                  });
                 } else {
                   break;
                 }
@@ -249,50 +267,21 @@
     }
 
     if (iframe) {
-      // Listen for messages from the iframe
+      const iframeOrigin = new URL(iframe.src, window.location.href).origin;
       window.addEventListener('message', async function (event) {
-        // Skip React DevTools messages - more comprehensive filtering
-        const isReactDevTools =
-          event.origin.includes('react-devtools') ||
-          event.origin.includes('chrome-extension://') ||
-          (event.data &&
-            typeof event.data === 'string' &&
-            (event.data.includes('react-devtools') ||
-              event.data.includes('__REACT_DEVTOOLS_GLOBAL_HOOK__') ||
-              event.data.includes('React DevTools'))) ||
-          (event.data &&
-            typeof event.data === 'object' &&
-            (event.data.source === 'react-devtools-content-script' || event.data.source === 'react-devtools'));
-
-        if (isReactDevTools) {
-          return;
+        if (event.source !== iframe.contentWindow || event.origin !== iframeOrigin ||
+            !event.data || event.data.type !== 'SHOP_PAGE_DATA') return;
+        const data = event.data;
+        const key = data.modelId + ':' + data.orderId;
+        if (inFlightOrders.has(key)) return;
+        inFlightOrders.add(key);
+        try {
+          await createProductFromIframeData(data);
+        } finally {
+          inFlightOrders.delete(key);
+          const overlay = document.getElementById('loading-overlay-{{ block.id }}');
+          if (overlay) overlay.style.display = 'none';
         }
-
-        // Log all other messages from iframes
-        console.log('Message received from iframe TEST 2:', {
-          origin: event.origin,
-          data: event.data,
-          source: event.source,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Capture structured payload for product creation if present
-        if (event.data && typeof event.data === 'object') {
-          const d = event.data;
-          // Expecting fields: productName, currency, modelId, price, description, imageUrl (all optional except modelId)
-          if ('modelId' in d || 'productName' in d || 'currency' in d || 'price' in d || 'description' in d || 'imageUrl' in d) {
-            latestDesignData = d;
-            // Auto-create immediately on message - allow multiple messages
-            if (d.modelId) {
-              await createProductFromIframeData(d);
-            }
-          }
-        }
-
-        // Optional: Filter messages from specific origins for security
-        // if (event.origin === 'https://your-trusted-domain.com') {
-        //   console.log('Trusted message from iframe:', event.data);
-        // }
       });
 
       // Optional: Send a message to the iframe when it loads
