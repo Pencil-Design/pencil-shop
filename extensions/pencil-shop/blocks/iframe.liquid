@@ -145,10 +145,13 @@
         }
 
         const properties = payload && payload.cartProperties;
+        const configuredProperties = payload && payload.cartPropertiesVersion === 1;
         if (!payload || payload.success !== true || payload.modelId !== inferredModelId ||
             payload.orderId !== inferredOrderId || payload.sku !== inferredModelId ||
+            (payload.cartPropertiesVersion !== undefined && !configuredProperties) ||
             !properties || typeof properties !== 'object' || Array.isArray(properties) ||
-            properties['Pencil Design ID'] !== inferredModelId || properties['Pencil Order ID'] !== inferredOrderId ||
+            ((!configuredProperties || Object.prototype.hasOwnProperty.call(properties, 'Pencil Design ID')) && properties['Pencil Design ID'] !== inferredModelId) ||
+            ((!configuredProperties || Object.prototype.hasOwnProperty.call(properties, 'Pencil Order ID')) && properties['Pencil Order ID'] !== inferredOrderId) ||
             Object.values(properties).some(value => typeof value !== 'string')) {
           alert('The saved design details are incomplete. Please try adding the item again.');
           return;
@@ -182,8 +185,8 @@
                 properties: { ...properties },
               };
 
-              // Add properties only if they have values
-              if (inferredDescription) {
+              // Older API responses leave Description to the bridge. Version 1 owns the entire map.
+              if (!configuredProperties && inferredDescription) {
                 cartItem.properties['Description'] = inferredDescription;
               }
 

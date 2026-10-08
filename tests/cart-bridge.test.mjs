@@ -46,6 +46,36 @@ test('passes both IDs to Pencil and the server properties to the Shopify cart', 
   assert.equal(h.window.location.href, '/cart');
 });
 
+test('accepts configured properties without public IDs and does not add disabled Description', async () => {
+  for (const cartProperties of [{}, { 'Stone Shape': 'Asscher' }, { Description: 'Server description' }]) {
+    const h = harness({ response: { ...product, cartPropertiesVersion: 1, cartProperties } });
+    await h.send();
+    assert.equal(h.requests.length, 2);
+    assert.deepEqual(h.requests[1].body.items[0].properties, cartProperties);
+    assert.equal(h.window.location.href, '/cart');
+  }
+});
+
+test('rejects invalid configured responses even when public IDs are optional', async () => {
+  for (const response of [
+    { ...product, cartPropertiesVersion: 1, modelId: 'wrong', cartProperties: {} },
+    { ...product, cartPropertiesVersion: 1, orderId: 'wrong', cartProperties: {} },
+    { ...product, cartPropertiesVersion: 1, sku: 'wrong', cartProperties: {} },
+    { ...product, cartPropertiesVersion: 1, cartProperties: { 'Pencil Design ID': 'wrong' } },
+    { ...product, cartPropertiesVersion: 1, cartProperties: { 'Pencil Order ID': 'wrong' } },
+    { ...product, cartPropertiesVersion: 1, cartProperties: { 'Ring Size': 7 } },
+    { ...product, cartPropertiesVersion: 1, cartProperties: null },
+    { ...product, cartPropertiesVersion: 1, cartProperties: [] },
+    { ...product, cartPropertiesVersion: 2 },
+    { ...product, cartProperties: {} },
+  ]) {
+    const h = harness({ response });
+    await h.send();
+    assert.equal(h.requests.length, 1);
+    assert.equal(h.alerts.length, 1);
+  }
+});
+
 test('ignores informational events and messages from a different window or origin', async () => {
   const h = harness();
   await h.send({ ...design, type: 'PENCIL_ADD_TO_CART' });
